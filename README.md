@@ -21,7 +21,13 @@ Motion Rehab Coach is a production-oriented iOS app foundation for guided rehab 
 
 - Live camera capture with iOS permissions handling.
 - On-device pose estimation via Vision human body pose request.
-- Squat repetition analysis with quality scoring.
+- Multi-program analysis with exercise-specific logic:
+  - Bodyweight Squat
+  - Sit to Stand
+  - Forward Lunge
+  - Mini Squat
+  - Calf Raise
+- Voice direction with real-time spoken coaching and rep announcements.
 - Session history persisted locally in app support directory.
 - Unit tests for repetition analyzer logic.
 

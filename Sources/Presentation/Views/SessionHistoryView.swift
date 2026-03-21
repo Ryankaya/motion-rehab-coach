@@ -14,7 +14,13 @@ struct SessionHistoryView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(viewModel.sessions.prefix(5)) { session in
-                    HStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: session.exerciseType.systemImage)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.03, green: 0.39, blue: 0.54))
+                            .frame(width: 34, height: 34)
+                            .background(Color(red: 0.91, green: 0.97, blue: 1.0), in: RoundedRectangle(cornerRadius: 8))
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.exerciseType.displayName)
                                 .font(.subheadline.weight(.semibold))
@@ -33,10 +39,20 @@ struct SessionHistoryView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(10)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(12)
+                    .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.black.opacity(0.07))
+                    )
                 }
             }
         }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.30))
+        )
     }
 }

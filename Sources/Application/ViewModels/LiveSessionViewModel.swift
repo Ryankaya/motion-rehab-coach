@@ -8,37 +8,59 @@ final class LiveSessionViewModel: ObservableObject {
         case tracking
     }
 
+    @Published private(set) var selectedExerciseType: ExerciseType
     @Published private(set) var isSessionRunning = false
     @Published private(set) var repetitionCount = 0
     @Published private(set) var qualityScore = 0.0
-    @Published private(set) var currentKneeAngle = 0.0
+    @Published private(set) var currentPrimaryMetricValue = 0.0
     @Published private(set) var feedback = "Ready"
     @Published private(set) var trackingState: TrackingState = .idle
     @Published private(set) var visibleJointCount = 0
+    @Published var voiceCoachingEnabled = true {
+        didSet {
+            voiceCoach.isEnabled = voiceCoachingEnabled
+            if !voiceCoachingEnabled {
+                voiceCoach.reset()
+            }
+        }
+    }
     @Published var errorMessage: String?
     @Published var cameraAccessDenied = false
 
     var captureSession: AVCaptureSession { cameraService.session }
+    var primaryMetricTitle: String { selectedExerciseType.primaryMetricTitle }
+    var primaryMetricUnit: String { selectedExerciseType.primaryMetricUnit }
 
     private let sessionStore: any SessionStore
     private let poseEstimator: PoseEstimating
     private let cameraService: CameraCaptureService
+    private let voiceCoach: VoiceCoaching
 
     private let processingQueue = DispatchQueue(label: "motion.rehab.processing")
-    private let analyzer = RepetitionAnalyzer()
+    private let analyzer: RepetitionAnalyzer
 
     private var startedAt: Date?
-    private var kneeAngleSamples: [Double] = []
+    private var primaryMetricSamples: [Double] = []
     private var missedPoseFrameCount = 0
 
+    private var lastAnnouncedFeedback = ""
+    private var lastAnnouncedRep = 0
+    private var hasAnnouncedTrackingActive = false
+
     init(
+        exerciseType: ExerciseType,
         sessionStore: any SessionStore,
         poseEstimator: PoseEstimating,
-        cameraService: CameraCaptureService
+        cameraService: CameraCaptureService,
+        voiceCoach: VoiceCoaching
     ) {
+        self.selectedExerciseType = exerciseType
         self.sessionStore = sessionStore
         self.poseEstimator = poseEstimator
         self.cameraService = cameraService
+        self.voiceCoach = voiceCoach
+        self.analyzer = RepetitionAnalyzer(exerciseType: exerciseType)
+        self.voiceCoach.isEnabled = voiceCoachingEnabled
 
         self.cameraService.onFrame = { [weak self] pixelBuffer in
             self?.processingQueue.async {
@@ -53,18 +75,23 @@ final class LiveSessionViewModel: ObservableObject {
                 try await cameraService.start()
                 await MainActor.run {
                     startedAt = Date()
-                    kneeAngleSamples.removeAll(keepingCapacity: true)
+                    primaryMetricSamples.removeAll(keepingCapacity: true)
                     missedPoseFrameCount = 0
+                    lastAnnouncedFeedback = ""
+                    lastAnnouncedRep = 0
+                    hasAnnouncedTrackingActive = false
+
                     analyzer.reset()
                     isSessionRunning = true
                     repetitionCount = 0
                     qualityScore = 0
-                    currentKneeAngle = 0
+                    currentPrimaryMetricValue = 0
                     visibleJointCount = 0
                     trackingState = .searching
-                    feedback = "Session started. Keep hips, knees, and ankles in frame."
+                    feedback = selectedExerciseType.sessionStartCue
                     errorMessage = nil
                     cameraAccessDenied = false
+                    voiceCoach.announce(selectedExerciseType.sessionStartCue, priority: .high)
                 }
             } catch CameraCaptureService.CameraError.unauthorized {
                 await MainActor.run {
@@ -81,6 +108,7 @@ final class LiveSessionViewModel: ObservableObject {
 
     func stopSession() {
         cameraService.stop()
+        voiceCoach.reset()
 
         guard let startedAt else {
             isSessionRunning = false
@@ -89,7 +117,7 @@ final class LiveSessionViewModel: ObservableObject {
         }
 
         let endedAt = Date()
-        let averageAngle = kneeAngleSamples.average
+        let averageMetric = primaryMetricSamples.average
         let computedQuality = qualityScore
         let reps = repetitionCount
 
@@ -98,14 +126,15 @@ final class LiveSessionViewModel: ObservableObject {
         visibleJointCount = 0
         feedback = "Session saved"
 
+        let notes = "Primary metric: \(selectedExerciseType.primaryMetricTitle) (\(selectedExerciseType.primaryMetricUnit))."
         let session = ExerciseSession(
-            exerciseType: .squat,
+            exerciseType: selectedExerciseType,
             startedAt: startedAt,
             endedAt: endedAt,
             repetitionCount: reps,
-            averageKneeAngle: averageAngle,
+            averageKneeAngle: averageMetric,
             qualityScore: computedQuality,
-            notes: "Auto-generated from live pose analysis."
+            notes: notes
         )
 
         Task {
@@ -130,7 +159,9 @@ final class LiveSessionViewModel: ObservableObject {
                         guard let self else { return }
                         self.trackingState = .searching
                         self.visibleJointCount = 0
-                        self.feedback = "No pose detected. Step back so your full lower body is visible."
+                        let lostTrackingFeedback = "No pose detected. Step back so your full lower body is visible."
+                        self.feedback = lostTrackingFeedback
+                        self.announceFeedbackIfNeeded(lostTrackingFeedback)
                     }
                 }
                 return
@@ -148,18 +179,27 @@ final class LiveSessionViewModel: ObservableObject {
                     self.repetitionCount = snapshot.repetitionCount
                     self.qualityScore = snapshot.qualityScore
                     self.feedback = snapshot.feedback
+                    self.announceFeedbackIfNeeded(snapshot.feedback)
+                    self.announceRepetitionIfNeeded(snapshot.repetitionCount)
                 }
 
-                if let angle = snapshot?.currentKneeAngle {
+                if let value = snapshot?.primaryMetricValue {
                     self.trackingState = .tracking
-                    self.currentKneeAngle = angle
-                    self.kneeAngleSamples.append(angle)
-                    if self.kneeAngleSamples.count > 1500 {
-                        self.kneeAngleSamples.removeFirst(self.kneeAngleSamples.count - 1500)
+                    self.currentPrimaryMetricValue = value
+                    self.primaryMetricSamples.append(value)
+                    if self.primaryMetricSamples.count > 1500 {
+                        self.primaryMetricSamples.removeFirst(self.primaryMetricSamples.count - 1500)
+                    }
+
+                    if !self.hasAnnouncedTrackingActive {
+                        self.hasAnnouncedTrackingActive = true
+                        self.voiceCoach.announce("Tracking active.", priority: .high)
                     }
                 } else {
                     self.trackingState = .searching
-                    self.feedback = "Pose found (\(jointCount)/6 joints). Keep knees and ankles fully visible."
+                    let needsVisibilityFeedback = "Pose found (\(jointCount)/6 joints). Keep hips, knees, and ankles visible."
+                    self.feedback = needsVisibilityFeedback
+                    self.announceFeedbackIfNeeded(needsVisibilityFeedback)
                 }
             }
         } catch {
@@ -168,6 +208,18 @@ final class LiveSessionViewModel: ObservableObject {
                 self?.errorMessage = "Pose estimation error: \(error.localizedDescription)"
             }
         }
+    }
+
+    private func announceFeedbackIfNeeded(_ message: String) {
+        guard message != lastAnnouncedFeedback else { return }
+        lastAnnouncedFeedback = message
+        voiceCoach.announce(message, priority: .normal)
+    }
+
+    private func announceRepetitionIfNeeded(_ count: Int) {
+        guard count > lastAnnouncedRep else { return }
+        lastAnnouncedRep = count
+        voiceCoach.announce("Rep \(count) complete.", priority: .high)
     }
 }
 

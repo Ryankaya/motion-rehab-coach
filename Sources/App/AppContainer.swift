@@ -8,11 +8,13 @@ final class AppContainer: ObservableObject {
         self.sessionStore = sessionStore
     }
 
-    func makeLiveSessionViewModel() -> LiveSessionViewModel {
+    func makeLiveSessionViewModel(exerciseType: ExerciseType) -> LiveSessionViewModel {
         LiveSessionViewModel(
+            exerciseType: exerciseType,
             sessionStore: sessionStore,
             poseEstimator: VisionPoseEstimator(),
-            cameraService: CameraCaptureService()
+            cameraService: CameraCaptureService(),
+            voiceCoach: SystemVoiceCoach()
         )
     }
 
