@@ -600,14 +600,14 @@ final class LiveSessionViewModel: ObservableObject {
 
             let existing = updatedProfile.jointTargets[joint] ?? desired
             updatedProfile.jointTargets[joint] = JointTarget(
-                x: blend(existing.x, desired.x, alpha: adaptiveBlendAlpha),
-                y: blend(existing.y, desired.y, alpha: adaptiveBlendAlpha)
+                x: blendUnitRange(existing.x, desired.x, alpha: adaptiveBlendAlpha),
+                y: blendUnitRange(existing.y, desired.y, alpha: adaptiveBlendAlpha)
             )
         }
 
         let metricSamples = highQualitySamples.map(\.metric)
         if let learnedRange = learnedMetricRange(from: metricSamples) {
-            updatedProfile.metricRange = blend(updatedProfile.metricRange, learnedRange, alpha: adaptiveBlendAlpha)
+            updatedProfile.metricRange = blendMetricRange(updatedProfile.metricRange, learnedRange, alpha: adaptiveBlendAlpha)
         }
 
         updatedProfile.source = .adaptive
@@ -924,14 +924,39 @@ final class LiveSessionViewModel: ObservableObject {
         }
     }
 
-    private func blend(_ lhs: ClosedRange<Double>, _ rhs: ClosedRange<Double>, alpha: Double) -> ClosedRange<Double> {
+    private func blendMetricRange(_ lhs: ClosedRange<Double>, _ rhs: ClosedRange<Double>, alpha: Double) -> ClosedRange<Double> {
         let lower = ((1 - alpha) * lhs.lowerBound) + (alpha * rhs.lowerBound)
         let upper = ((1 - alpha) * lhs.upperBound) + (alpha * rhs.upperBound)
-        return clampedMetricRange(lower...upper)
+        let blended = normalizedRange(lower: lower, upper: upper, fallback: safetyMetricBounds)
+        return clampedMetricRange(blended)
+    }
+
+    private func blendUnitRange(_ lhs: ClosedRange<Double>, _ rhs: ClosedRange<Double>, alpha: Double) -> ClosedRange<Double> {
+        let lower = ((1 - alpha) * lhs.lowerBound) + (alpha * rhs.lowerBound)
+        let upper = ((1 - alpha) * lhs.upperBound) + (alpha * rhs.upperBound)
+        let blended = normalizedRange(lower: lower, upper: upper, fallback: 0.02...0.98)
+        return clampedUnitRange(blended)
     }
 
     private func clampedUnitRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
-        max(0.02, range.lowerBound)...min(0.98, range.upperBound)
+        let lower = max(0.02, min(0.98, range.lowerBound))
+        let upper = max(0.02, min(0.98, range.upperBound))
+        if lower <= upper {
+            return lower...upper
+        }
+        return 0.02...0.98
+    }
+
+    private func normalizedRange(
+        lower: Double,
+        upper: Double,
+        fallback: ClosedRange<Double>
+    ) -> ClosedRange<Double> {
+        guard lower.isFinite, upper.isFinite else { return fallback }
+        if lower <= upper {
+            return lower...upper
+        }
+        return upper...lower
     }
 
     private func persistTargetProfile() {
@@ -952,10 +977,25 @@ final class LiveSessionViewModel: ObservableObject {
 
     private static func normalizedTargetProfile(_ profile: TargetProfile, bounds: ClosedRange<Double>) -> TargetProfile {
         var normalized = profile
+        normalized.jointTargets = normalized.jointTargets.mapValues { target in
+            JointTarget(
+                x: normalizedUnitRange(target.x),
+                y: normalizedUnitRange(target.y)
+            )
+        }
         let lower = max(bounds.lowerBound, profile.metricRange.lowerBound)
         let upper = min(bounds.upperBound, profile.metricRange.upperBound)
         normalized.metricRange = lower < upper ? (lower...upper) : bounds
         return normalized
+    }
+
+    private static func normalizedUnitRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
+        let lower = max(0.02, min(0.98, range.lowerBound))
+        let upper = max(0.02, min(0.98, range.upperBound))
+        if lower <= upper {
+            return lower...upper
+        }
+        return 0.02...0.98
     }
 
     private static func defaultTempoTarget(for exercise: ExerciseType) -> Double {
@@ -1128,7 +1168,14 @@ struct TargetProfile: Codable {
     var updatedAt: Date
 
     var metricRange: ClosedRange<Double> {
-        get { metricLowerBound...metricUpperBound }
+        get {
+            let lower = metricLowerBound.isFinite ? metricLowerBound : 0
+            let upper = metricUpperBound.isFinite ? metricUpperBound : lower
+            if lower <= upper {
+                return lower...upper
+            }
+            return upper...lower
+        }
         set {
             metricLowerBound = newValue.lowerBound
             metricUpperBound = newValue.upperBound

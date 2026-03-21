@@ -719,7 +719,12 @@ private struct PoseCoachingOverlay: View {
     }
 
     private func clampedUnitRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
-        max(0.02, range.lowerBound)...min(0.98, range.upperBound)
+        let lower = max(0.02, min(0.98, range.lowerBound))
+        let upper = max(0.02, min(0.98, range.upperBound))
+        if lower <= upper {
+            return lower...upper
+        }
+        return 0.02...0.98
     }
 }
 
