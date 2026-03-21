@@ -1,0 +1,590 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		08AD6EA769B3C7F52943ABB4 /* SessionHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12AB7D0DD6241AF23A20B980 /* SessionHistoryViewModel.swift */; };
+		1027B3AE8CE126ACB062D7BD /* CameraCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B98D9BE66512EA9DA8C55FB /* CameraCaptureService.swift */; };
+		18AFCD85C260DA08A28E6A92 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAF9172FC16503F241AE9E2 /* DashboardView.swift */; };
+		28014CB5AA2495983853D512 /* VisionPoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57040F8928A890482001E3C0 /* VisionPoseEstimator.swift */; };
+		3994B52E084BFA02127B5DC1 /* MetricCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750B21F416378E2B1AADBD2F /* MetricCardView.swift */; };
+		413F2BDA710AA976479FA1C9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */; };
+		6134BF049BC13D9AD9A33088 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F4A54DA3767AD086174189 /* SessionStore.swift */; };
+		6B75DCEF2616E28309982ECA /* FileSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 963475884503E04D09DC61FD /* FileSessionStore.swift */; };
+		80A71816BDE1C368F7410013 /* PoseEstimating.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA83895F7592A54EA44C22F4 /* PoseEstimating.swift */; };
+		8FE605546BCB5A0C4F5C86D1 /* ExerciseSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573A34F1FBE743D9D29A3986 /* ExerciseSession.swift */; };
+		A27FF48A197A00960F88BBE6 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66F2923E73CAAFFAA7A59552 /* SessionHistoryView.swift */; };
+		A5C3A7759CD7DD49BD718758 /* PosePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 529C89E1E22E7972FB144D08 /* PosePoint.swift */; };
+		A686D4888F2C9E097017A18D /* LiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A09792262A1B6BCFAC52886E /* LiveSessionView.swift */; };
+		BAFA3018B6126604616751C4 /* RepetitionAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21A9E16C05CF1CE9A9558D7 /* RepetitionAnalyzerTests.swift */; };
+		C1967AE01F842DE05A131904 /* ExerciseType.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFB388C6F8F95101758F4DEC /* ExerciseType.swift */; };
+		C54F4092E495AA86ED26FC72 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0413B865B45FC3D2A4EF09 /* AppContainer.swift */; };
+		DF371E07B6BFF3422AFC90B1 /* LiveSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883D2F7C2F8398D6EED62E4E /* LiveSessionViewModel.swift */; };
+		E23A3595586E832F6B489A57 /* RepetitionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8D34C37E9B5BE47589FD18 /* RepetitionAnalyzer.swift */; };
+		E405528084D5F5D031206271 /* MotionRehabCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 907DA0BD36701ABB5B1D75EB /* MotionRehabCoachApp.swift */; };
+		F46512D61F2F425E62B69BD1 /* PoseFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB6BD3C4A9D0EA0111B4A95 /* PoseFrame.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		55B006A1BE1D3CC85AEA5E74 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CDEF9F1CD0981590813B605 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6E4C55F1B3D85FA05DB1532E;
+			remoteInfo = "motion-rehab-coach";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0F8D34C37E9B5BE47589FD18 /* RepetitionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionAnalyzer.swift; sourceTree = "<group>"; };
+		12AB7D0DD6241AF23A20B980 /* SessionHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryViewModel.swift; sourceTree = "<group>"; };
+		47F4A54DA3767AD086174189 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		4A0413B865B45FC3D2A4EF09 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
+		4BAF9172FC16503F241AE9E2 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		529C89E1E22E7972FB144D08 /* PosePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosePoint.swift; sourceTree = "<group>"; };
+		57040F8928A890482001E3C0 /* VisionPoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPoseEstimator.swift; sourceTree = "<group>"; };
+		573A34F1FBE743D9D29A3986 /* ExerciseSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSession.swift; sourceTree = "<group>"; };
+		66F2923E73CAAFFAA7A59552 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
+		6B98D9BE66512EA9DA8C55FB /* CameraCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCaptureService.swift; sourceTree = "<group>"; };
+		750B21F416378E2B1AADBD2F /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
+		883D2F7C2F8398D6EED62E4E /* LiveSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionViewModel.swift; sourceTree = "<group>"; };
+		907DA0BD36701ABB5B1D75EB /* MotionRehabCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRehabCoachApp.swift; sourceTree = "<group>"; };
+		95AB460E6B3C1C6B6BC24F6A /* motion-rehab-coachTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "motion-rehab-coachTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		963475884503E04D09DC61FD /* FileSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSessionStore.swift; sourceTree = "<group>"; };
+		9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "motion-rehab-coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		A09792262A1B6BCFAC52886E /* LiveSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionView.swift; sourceTree = "<group>"; };
+		A21A9E16C05CF1CE9A9558D7 /* RepetitionAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionAnalyzerTests.swift; sourceTree = "<group>"; };
+		BEB6BD3C4A9D0EA0111B4A95 /* PoseFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseFrame.swift; sourceTree = "<group>"; };
+		DFB388C6F8F95101758F4DEC /* ExerciseType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseType.swift; sourceTree = "<group>"; };
+		EA83895F7592A54EA44C22F4 /* PoseEstimating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseEstimating.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		01F82FD8A9CB21D42CB72394 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				573A34F1FBE743D9D29A3986 /* ExerciseSession.swift */,
+				DFB388C6F8F95101758F4DEC /* ExerciseType.swift */,
+				BEB6BD3C4A9D0EA0111B4A95 /* PoseFrame.swift */,
+				529C89E1E22E7972FB144D08 /* PosePoint.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		0DA081836958C8789D717282 /* Pose */ = {
+			isa = PBXGroup;
+			children = (
+				57040F8928A890482001E3C0 /* VisionPoseEstimator.swift */,
+			);
+			path = Pose;
+			sourceTree = "<group>";
+		};
+		1AC2CD339D3A75BAC1F123B9 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				EAC787BA4B4BFB9E3E829243 /* App */,
+				6B7E9659578A8FF007AC3F10 /* Application */,
+				F0130A4730AC21EEEBFACF3B /* Domain */,
+				B9C3CCDF649ACD01FF6BDEA4 /* Infrastructure */,
+				F7876CDD56E9057F8DCB5789 /* Presentation */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		53ADE79A74EA376CE6AAF027 = {
+			isa = PBXGroup;
+			children = (
+				1AC2CD339D3A75BAC1F123B9 /* Sources */,
+				68C816F4AE03FD945424D454 /* Tests */,
+				C6B76AD6FA4B04AC4E5A9E89 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		562EFCAEB311A22762493A0A /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */,
+				750B21F416378E2B1AADBD2F /* MetricCardView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		68C816F4AE03FD945424D454 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A21A9E16C05CF1CE9A9558D7 /* RepetitionAnalyzerTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		6B7E9659578A8FF007AC3F10 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				D73C0A1C7240808DC7369BFA /* ViewModels */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		76225DF1F263D0AAB7042A9C /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				EA83895F7592A54EA44C22F4 /* PoseEstimating.swift */,
+				47F4A54DA3767AD086174189 /* SessionStore.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		B9C3CCDF649ACD01FF6BDEA4 /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				E62FECB8C9210F62D555DDA8 /* Camera */,
+				F0C4A6A77DFDBADCC4547E3C /* Persistence */,
+				0DA081836958C8789D717282 /* Pose */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		BE319B00A3372F931FB038E7 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				0F8D34C37E9B5BE47589FD18 /* RepetitionAnalyzer.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		C6B76AD6FA4B04AC4E5A9E89 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */,
+				95AB460E6B3C1C6B6BC24F6A /* motion-rehab-coachTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CA18A13CF2EBB70CF10184CA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4BAF9172FC16503F241AE9E2 /* DashboardView.swift */,
+				A09792262A1B6BCFAC52886E /* LiveSessionView.swift */,
+				66F2923E73CAAFFAA7A59552 /* SessionHistoryView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D73C0A1C7240808DC7369BFA /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				883D2F7C2F8398D6EED62E4E /* LiveSessionViewModel.swift */,
+				12AB7D0DD6241AF23A20B980 /* SessionHistoryViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		E62FECB8C9210F62D555DDA8 /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				6B98D9BE66512EA9DA8C55FB /* CameraCaptureService.swift */,
+			);
+			path = Camera;
+			sourceTree = "<group>";
+		};
+		EAC787BA4B4BFB9E3E829243 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4A0413B865B45FC3D2A4EF09 /* AppContainer.swift */,
+				907DA0BD36701ABB5B1D75EB /* MotionRehabCoachApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F0130A4730AC21EEEBFACF3B /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				01F82FD8A9CB21D42CB72394 /* Models */,
+				76225DF1F263D0AAB7042A9C /* Protocols */,
+				BE319B00A3372F931FB038E7 /* Services */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		F0C4A6A77DFDBADCC4547E3C /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				963475884503E04D09DC61FD /* FileSessionStore.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		F7876CDD56E9057F8DCB5789 /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				562EFCAEB311A22762493A0A /* Components */,
+				CA18A13CF2EBB70CF10184CA /* Views */,
+			);
+			path = Presentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		444322E159DC32930BEFCF18 /* motion-rehab-coachTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C000D453CA3E0EFC7D64BB2F /* Build configuration list for PBXNativeTarget "motion-rehab-coachTests" */;
+			buildPhases = (
+				AE7BD9FBFA697837787DD81E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				53310085F8115B15EE6B0765 /* PBXTargetDependency */,
+			);
+			name = "motion-rehab-coachTests";
+			packageProductDependencies = (
+			);
+			productName = "motion-rehab-coachTests";
+			productReference = 95AB460E6B3C1C6B6BC24F6A /* motion-rehab-coachTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		6E4C55F1B3D85FA05DB1532E /* motion-rehab-coach */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 66EE62624508525A23CFA34E /* Build configuration list for PBXNativeTarget "motion-rehab-coach" */;
+			buildPhases = (
+				0D2E9489C7CB4AEBD2B09D59 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "motion-rehab-coach";
+			packageProductDependencies = (
+			);
+			productName = "motion-rehab-coach";
+			productReference = 9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8CDEF9F1CD0981590813B605 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6E4C55F1B3D85FA05DB1532E = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = E0FF3F2440A082E26EAB8044 /* Build configuration list for PBXProject "motion-rehab-coach" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 53ADE79A74EA376CE6AAF027;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6E4C55F1B3D85FA05DB1532E /* motion-rehab-coach */,
+				444322E159DC32930BEFCF18 /* motion-rehab-coachTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0D2E9489C7CB4AEBD2B09D59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C54F4092E495AA86ED26FC72 /* AppContainer.swift in Sources */,
+				1027B3AE8CE126ACB062D7BD /* CameraCaptureService.swift in Sources */,
+				413F2BDA710AA976479FA1C9 /* CameraPreviewView.swift in Sources */,
+				18AFCD85C260DA08A28E6A92 /* DashboardView.swift in Sources */,
+				8FE605546BCB5A0C4F5C86D1 /* ExerciseSession.swift in Sources */,
+				C1967AE01F842DE05A131904 /* ExerciseType.swift in Sources */,
+				6B75DCEF2616E28309982ECA /* FileSessionStore.swift in Sources */,
+				A686D4888F2C9E097017A18D /* LiveSessionView.swift in Sources */,
+				DF371E07B6BFF3422AFC90B1 /* LiveSessionViewModel.swift in Sources */,
+				3994B52E084BFA02127B5DC1 /* MetricCardView.swift in Sources */,
+				E405528084D5F5D031206271 /* MotionRehabCoachApp.swift in Sources */,
+				80A71816BDE1C368F7410013 /* PoseEstimating.swift in Sources */,
+				F46512D61F2F425E62B69BD1 /* PoseFrame.swift in Sources */,
+				A5C3A7759CD7DD49BD718758 /* PosePoint.swift in Sources */,
+				E23A3595586E832F6B489A57 /* RepetitionAnalyzer.swift in Sources */,
+				A27FF48A197A00960F88BBE6 /* SessionHistoryView.swift in Sources */,
+				08AD6EA769B3C7F52943ABB4 /* SessionHistoryViewModel.swift in Sources */,
+				6134BF049BC13D9AD9A33088 /* SessionStore.swift in Sources */,
+				28014CB5AA2495983853D512 /* VisionPoseEstimator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE7BD9FBFA697837787DD81E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAFA3018B6126604616751C4 /* RepetitionAnalyzerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		53310085F8115B15EE6B0765 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6E4C55F1B3D85FA05DB1532E /* motion-rehab-coach */;
+			targetProxy = 55B006A1BE1D3CC85AEA5E74 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		230F17EF110A58D3A8525231 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		413CF525D3E7E0B13271AD13 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/motion-rehab-coach.app/motion-rehab-coach";
+			};
+			name = Debug;
+		};
+		70073811E8E2AFA46CFD76C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoach;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach uses the camera to analyze body pose for exercise feedback.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Motion Rehab Coach saves optional session snapshots for clinical review.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ryankaya.motionrehabcoach;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		888FC5E54B0F19982358C748 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.1;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C4E5531C9A68586316FAB9E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/motion-rehab-coach.app/motion-rehab-coach";
+			};
+			name = Release;
+		};
+		D58C97DEB59C36D184AF5D14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoach;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach uses the camera to analyze body pose for exercise feedback.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Motion Rehab Coach saves optional session snapshots for clinical review.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ryankaya.motionrehabcoach;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		66EE62624508525A23CFA34E /* Build configuration list for PBXNativeTarget "motion-rehab-coach" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70073811E8E2AFA46CFD76C0 /* Debug */,
+				D58C97DEB59C36D184AF5D14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C000D453CA3E0EFC7D64BB2F /* Build configuration list for PBXNativeTarget "motion-rehab-coachTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				413CF525D3E7E0B13271AD13 /* Debug */,
+				C4E5531C9A68586316FAB9E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E0FF3F2440A082E26EAB8044 /* Build configuration list for PBXProject "motion-rehab-coach" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				888FC5E54B0F19982358C748 /* Debug */,
+				230F17EF110A58D3A8525231 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8CDEF9F1CD0981590813B605 /* Project object */;
+}
