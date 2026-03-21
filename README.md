@@ -1,41 +1,40 @@
 # Motion Rehab Coach
 
-Motion Rehab Coach is a production-oriented iOS app foundation for guided rehab exercise sessions with on-device pose tracking.
+Motion Rehab Coach is a production-oriented iOS rehabilitation assistant built with SwiftUI + MVVM. It provides on-device movement tracking, personalized targets, voice coaching, and therapist-friendly reporting.
 
-## Product goals
+## Production feature set
 
-- Real-time movement feedback during rehab exercises.
-- Session summaries with repetition and form quality metrics.
-- Local-first storage with privacy-preserving architecture.
-- Expandable platform for therapist-prescribed protocols.
-
-## Technical architecture
-
-- `Domain`: Core entities, protocols, and movement analysis logic.
-- `Infrastructure`: Camera capture, Vision pose estimation, and persistence adapters.
-- `Application`: MVVM view models and orchestration.
-- `Presentation`: SwiftUI screens/components.
-- `Tests`: Domain behavior tests (rep counting, scoring).
-
-## Current production-ready baseline
-
-- Live camera capture with iOS permissions handling.
-- On-device pose estimation via Vision human body pose request.
-- Multi-program analysis with exercise-specific logic:
+- Real-time camera tracking with Vision pose estimation and robust tracking-state feedback.
+- Multi-program rehab protocols:
   - Bodyweight Squat
   - Sit to Stand
   - Forward Lunge
   - Mini Squat
   - Calf Raise
-- Voice direction with real-time spoken coaching and rep announcements.
-- Session history persisted locally in app support directory.
-- Unit tests for repetition analyzer logic.
+- Personalized calibration wizard that captures baseline stance and camera framing.
+- Adaptive target zones that update from recent high-quality reps.
+- Symmetry scoring with compensation alerts.
+- Tempo coaching (eccentric/concentric timing) with optional metronome cues.
+- Pain + RPE intake before sessions with protocol auto-adjustment.
+- Watch telemetry bridge (heart-rate ingest and live session payloads).
+- Session history with trend charts and exportable PDF clinical report.
 
-## Apple technologies
+## Architecture
 
-- Vision framework for body pose detection.
-- AVFoundation for camera capture pipeline.
-- SwiftUI + MVVM for presentation and state management.
+- `Domain`: entities, protocols, and exercise analysis services.
+- `Application`: MVVM view models coordinating session state and workflows.
+- `Infrastructure`: camera, Vision pose estimation, voice engine, watch sync, and persistence.
+- `Presentation`: SwiftUI feature screens and reusable components.
+- `Tests`: analyzer-focused unit tests.
+
+## Apple technologies used
+
+- [Vision](https://developer.apple.com/documentation/vision)
+- [Detecting Human Body Poses in Images](https://developer.apple.com/documentation/vision/detecting-human-body-poses-in-images)
+- [AVFoundation](https://developer.apple.com/documentation/avfoundation)
+- [WatchConnectivity](https://developer.apple.com/documentation/watchconnectivity)
+- [Swift Charts](https://developer.apple.com/documentation/charts)
+- [UIKit PDF Renderer](https://developer.apple.com/documentation/uikit/uigraphicspdfrenderer)
 
 ## Build
 

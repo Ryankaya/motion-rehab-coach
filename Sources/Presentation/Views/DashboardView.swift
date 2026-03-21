@@ -3,7 +3,12 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject var container: AppContainer
     @StateObject private var historyViewModel: SessionHistoryViewModel
+
     @State private var selectedExerciseType: ExerciseType = .squat
+    @State private var painScore = 2.0
+    @State private var rpeGoal = 6.0
+    @State private var clinicianSharingMode = false
+    @State private var metronomeEnabled = true
 
     init(container: AppContainer) {
         self.container = container
@@ -20,6 +25,7 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         heroCard
                         exercisePickerCard
+                        readinessCard
                         startSessionCard
                         SessionHistoryView(viewModel: historyViewModel)
                     }
@@ -44,14 +50,14 @@ struct DashboardView: View {
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
-            Text("Choose a guided protocol, then train with real-time on-device form feedback and voice direction.")
+            Text("Choose a guided protocol, calibrate once, then train with live form correction and voice coaching.")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.92))
 
             HStack(spacing: 10) {
-                pill("Live Tracking")
-                pill("Voice Coaching")
-                pill("Offline Sessions")
+                pill("Adaptive Targets")
+                pill("Tempo Coaching")
+                pill("Session Reports")
             }
             .padding(.top, 4)
         }
@@ -92,9 +98,81 @@ struct DashboardView: View {
         )
     }
 
+    private var readinessCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Pre-Session Setup")
+                    .font(.headline)
+                Spacer()
+                Text(protocolIntensityLabel)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(protocolIntensityColor.opacity(0.20), in: Capsule())
+                    .foregroundStyle(protocolIntensityColor)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Pain (0-10)")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(Int(painScore))/10")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(red: 0.84, green: 0.35, blue: 0.18))
+                }
+
+                Slider(value: $painScore, in: 0...10, step: 1)
+                    .tint(Color(red: 0.84, green: 0.35, blue: 0.18))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("RPE Goal (1-10)")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(Int(rpeGoal))/10")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(red: 0.05, green: 0.43, blue: 0.62))
+                }
+
+                Slider(value: $rpeGoal, in: 1...10, step: 1)
+                    .tint(Color(red: 0.05, green: 0.43, blue: 0.62))
+            }
+
+            Toggle(isOn: $metronomeEnabled) {
+                Label("Tempo Metronome", systemImage: "metronome")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            Toggle(isOn: $clinicianSharingMode) {
+                Label("Clinician Sharing Mode", systemImage: "person.2.badge.gearshape")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            Text(protocolSummary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.08))
+        )
+    }
+
     private var startSessionCard: some View {
         NavigationLink {
-            LiveSessionView(viewModel: container.makeLiveSessionViewModel(exerciseType: selectedExerciseType))
+            LiveSessionView(
+                viewModel: container.makeLiveSessionViewModel(
+                    exerciseType: selectedExerciseType,
+                    painScore: Int(painScore),
+                    rpeGoal: Int(rpeGoal),
+                    clinicianSharingMode: clinicianSharingMode,
+                    metronomeEnabled: metronomeEnabled
+                )
+            )
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 10) {
@@ -115,8 +193,11 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 8) {
-                    labelBadge("Metric: \(selectedExerciseType.primaryMetricTitle)")
-                    labelBadge("Voice enabled")
+                    labelBadge("Pain \(Int(painScore))/10")
+                    labelBadge("RPE \(Int(rpeGoal))/10")
+                    if metronomeEnabled {
+                        labelBadge("Metronome on")
+                    }
                 }
             }
             .padding(14)
@@ -162,6 +243,40 @@ struct DashboardView: View {
             )
             .foregroundStyle(isSelected ? .white : .primary)
         }
+    }
+
+    private var protocolIntensityLabel: String {
+        if painScore >= 7 || rpeGoal <= 4 {
+            return "Conservative"
+        }
+        if painScore >= 4 || rpeGoal <= 6 {
+            return "Moderate"
+        }
+        return "Standard"
+    }
+
+    private var protocolIntensityColor: Color {
+        switch protocolIntensityLabel {
+        case "Conservative":
+            return Color(red: 0.83, green: 0.30, blue: 0.20)
+        case "Moderate":
+            return Color(red: 0.88, green: 0.58, blue: 0.16)
+        default:
+            return Color(red: 0.09, green: 0.62, blue: 0.34)
+        }
+    }
+
+    private var protocolSummary: String {
+        let exerciseContext: String
+        switch selectedExerciseType {
+        case .calfRaise:
+            exerciseContext = "Lift height"
+        case .squat, .sitToStand, .lunge, .miniSquat:
+            exerciseContext = "Depth target"
+        }
+
+        return "\(exerciseContext) auto-adjusts from pain \(Int(painScore))/10 and RPE \(Int(rpeGoal))/10. " +
+            "Use clinician mode when you plan to export reports for therapist review."
     }
 
     private func pill(_ text: String) -> some View {

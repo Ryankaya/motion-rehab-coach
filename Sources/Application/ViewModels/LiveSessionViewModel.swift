@@ -1,3 +1,4 @@
+import AudioToolbox
 import AVFoundation
 import Foundation
 
@@ -6,6 +7,22 @@ final class LiveSessionViewModel: ObservableObject {
         case idle
         case searching
         case tracking
+    }
+
+    enum MovementPhase: String {
+        case idle
+        case eccentric
+        case concentric
+        case steady
+
+        var label: String {
+            switch self {
+            case .idle: return "Idle"
+            case .eccentric: return "Eccentric"
+            case .concentric: return "Concentric"
+            case .steady: return "Steady"
+            }
+        }
     }
 
     @Published private(set) var selectedExerciseType: ExerciseType
@@ -20,11 +37,23 @@ final class LiveSessionViewModel: ObservableObject {
     @Published private(set) var formAlignmentScore = 0.0
     @Published private(set) var metricInTargetRange = false
 
+    @Published private(set) var symmetryScore = 0.0
+    @Published private(set) var compensationAlert: String?
+    @Published private(set) var compensationAlertsCount = 0
+    @Published private(set) var movementPhaseLabel = MovementPhase.idle.label
+    @Published private(set) var eccentricTempo = 0.0
+    @Published private(set) var concentricTempo = 0.0
+    @Published private(set) var tempoScore = 0.0
+
+    @Published private(set) var watchHeartRate: Double?
+    @Published private(set) var watchReachable = false
+
     @Published private(set) var calibrationProgress = 0.0
     @Published private(set) var calibrationMessage = "Run calibration before your first session."
     @Published private(set) var isCalibrating = false
     @Published private(set) var isCalibrationReady = false
 
+    @Published var metronomeEnabled: Bool
     @Published var voiceCoachingEnabled = true {
         didSet {
             voiceCoach.isEnabled = voiceCoachingEnabled
@@ -38,27 +67,44 @@ final class LiveSessionViewModel: ObservableObject {
 
     @Published private(set) var targetProfile: TargetProfile
 
+    let painScore: Int
+    let rpeGoal: Int
+    let clinicianSharingMode: Bool
+
     var captureSession: AVCaptureSession { cameraService.session }
     var primaryMetricTitle: String { selectedExerciseType.primaryMetricTitle }
     var primaryMetricUnit: String { selectedExerciseType.primaryMetricUnit }
     var targetMetricRange: ClosedRange<Double> { targetProfile.metricRange }
     var targetProfileSourceLabel: String { targetProfile.source.label }
     var jointTargets: [BodyJoint: JointTarget] { targetProfile.jointTargets }
+    var protocolAdjustmentSummary: String { adjustmentSummaryText }
 
     private let sessionStore: any SessionStore
     private let poseEstimator: PoseEstimating
     private let cameraService: CameraCaptureService
     private let voiceCoach: VoiceCoaching
+    private let watchSync: any WatchSessionSyncing
 
     private let processingQueue = DispatchQueue(label: "motion.rehab.processing")
     private let analyzer: RepetitionAnalyzer
 
     private var startedAt: Date?
     private var primaryMetricSamples: [Double] = []
+    private var symmetrySamples: [Double] = []
+    private var eccentricTempoSamples: [Double] = []
+    private var concentricTempoSamples: [Double] = []
     private var calibrationFrames: [PoseFrame] = []
     private var highQualitySamples: [AdaptiveSample] = []
     private var calibrationCompletionPending = false
     private var missedPoseFrameCount = 0
+
+    private var previousMetricValue: Double?
+    private var previousMetricTimestamp: Date?
+    private var currentMovementPhase: MovementPhase = .idle
+    private var phaseStartedAt: Date?
+    private var lastMetronomeCueAt = Date.distantPast
+    private var lastCompensationAnnouncementAt = Date.distantPast
+    private var lastWatchSyncAt = Date.distantPast
 
     private var lastAnnouncedFeedback = ""
     private var lastAnnouncedRep = 0
@@ -70,30 +116,71 @@ final class LiveSessionViewModel: ObservableObject {
     private let adaptiveUpdateInterval = 6
     private let adaptiveMinimumQuality = 90.0
     private let adaptiveBlendAlpha = 0.18
+    private let compensationAnnouncementInterval: TimeInterval = 4.5
+    private let watchSyncInterval: TimeInterval = 1.2
+    private let metronomeCueInterval: TimeInterval = 1.4
+    private let tempoTargetSeconds: Double
+    private let safetyMetricBounds: ClosedRange<Double>
+    private let adjustmentSummaryText: String
 
     init(
         exerciseType: ExerciseType,
+        painScore: Int,
+        rpeGoal: Int,
+        clinicianSharingMode: Bool,
+        metronomeEnabled: Bool,
         sessionStore: any SessionStore,
         poseEstimator: PoseEstimating,
         cameraService: CameraCaptureService,
-        voiceCoach: VoiceCoaching
+        voiceCoach: VoiceCoaching,
+        watchSync: any WatchSessionSyncing
     ) {
         self.selectedExerciseType = exerciseType
+        self.painScore = painScore
+        self.rpeGoal = rpeGoal
+        self.clinicianSharingMode = clinicianSharingMode
+        self.metronomeEnabled = metronomeEnabled
         self.sessionStore = sessionStore
         self.poseEstimator = poseEstimator
         self.cameraService = cameraService
         self.voiceCoach = voiceCoach
+        self.watchSync = watchSync
         self.analyzer = RepetitionAnalyzer(exerciseType: exerciseType)
-        self.targetProfile = Self.defaultTargetProfile(for: exerciseType)
-        self.voiceCoach.isEnabled = voiceCoachingEnabled
+        self.tempoTargetSeconds = Self.defaultTempoTarget(for: exerciseType)
+
+        let defaultMetricRange = Self.defaultMetricRange(for: exerciseType)
+        let adjustedRange = Self.adjustMetricRange(
+            defaultMetricRange,
+            exerciseType: exerciseType,
+            painScore: painScore,
+            rpeGoal: rpeGoal
+        )
+        safetyMetricBounds = adjustedRange
+        adjustmentSummaryText = Self.makeAdjustmentSummary(
+            exerciseType: exerciseType,
+            painScore: painScore,
+            rpeGoal: rpeGoal
+        )
+
+        targetProfile = Self.defaultTargetProfile(for: exerciseType)
+        targetProfile.metricRange = adjustedRange
+        voiceCoach.isEnabled = voiceCoachingEnabled
+        watchReachable = watchSync.isReachable
 
         if let stored = Self.loadTargetProfile(for: exerciseType) {
-            targetProfile = stored
+            targetProfile = Self.normalizedTargetProfile(stored, bounds: adjustedRange)
             isCalibrationReady = true
             calibrationMessage = "Calibrated \(stored.updatedAt.formatted(date: .abbreviated, time: .shortened))."
         }
 
-        self.cameraService.onFrame = { [weak self] pixelBuffer in
+        watchSync.onHeartRateUpdate = { [weak self] heartRate in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.watchHeartRate = heartRate
+            }
+        }
+
+        cameraService.onFrame = { [weak self] pixelBuffer in
             self?.processingQueue.async {
                 self?.processFrame(pixelBuffer)
             }
@@ -118,25 +205,43 @@ final class LiveSessionViewModel: ObservableObject {
                 await MainActor.run {
                     startedAt = Date()
                     primaryMetricSamples.removeAll(keepingCapacity: true)
+                    symmetrySamples.removeAll(keepingCapacity: true)
+                    eccentricTempoSamples.removeAll(keepingCapacity: true)
+                    concentricTempoSamples.removeAll(keepingCapacity: true)
                     highQualitySamples.removeAll(keepingCapacity: true)
                     missedPoseFrameCount = 0
+                    previousMetricValue = nil
+                    previousMetricTimestamp = nil
+                    currentMovementPhase = .idle
+                    phaseStartedAt = nil
                     lastAnnouncedFeedback = ""
                     lastAnnouncedRep = 0
                     hasAnnouncedTrackingActive = false
+                    compensationAlert = nil
+                    compensationAlertsCount = 0
+                    lastCompensationAnnouncementAt = .distantPast
+                    lastWatchSyncAt = .distantPast
+                    lastMetronomeCueAt = .distantPast
 
                     analyzer.reset()
                     isSessionRunning = true
                     repetitionCount = 0
                     qualityScore = 0
                     currentPrimaryMetricValue = 0
+                    symmetryScore = 0
+                    tempoScore = 0
+                    eccentricTempo = 0
+                    concentricTempo = 0
+                    movementPhaseLabel = MovementPhase.idle.label
                     visibleJointCount = 0
                     latestPoseFrame = nil
                     formAlignmentScore = 0
                     metricInTargetRange = false
                     trackingState = .searching
-                    feedback = selectedExerciseType.sessionStartCue
+                    feedback = "\(selectedExerciseType.sessionStartCue) \(adjustmentSummaryText)"
                     errorMessage = nil
                     cameraAccessDenied = false
+                    watchReachable = watchSync.isReachable
                     voiceCoach.announce(selectedExerciseType.sessionStartCue, priority: .high)
                 }
             } catch CameraCaptureService.CameraError.unauthorized {
@@ -166,6 +271,9 @@ final class LiveSessionViewModel: ObservableObject {
         let averageMetric = primaryMetricSamples.average
         let computedQuality = qualityScore
         let reps = repetitionCount
+        let averageSymmetry = symmetrySamples.average
+        let avgEccentricTempo = eccentricTempoSamples.average
+        let avgConcentricTempo = concentricTempoSamples.average
 
         isSessionRunning = false
         trackingState = .idle
@@ -173,9 +281,14 @@ final class LiveSessionViewModel: ObservableObject {
         latestPoseFrame = nil
         formAlignmentScore = 0
         metricInTargetRange = false
+        movementPhaseLabel = MovementPhase.idle.label
         feedback = "Session saved"
 
-        let notes = "Primary metric: \(selectedExerciseType.primaryMetricTitle) (\(selectedExerciseType.primaryMetricUnit))."
+        let notes = """
+        Metric: \(selectedExerciseType.primaryMetricTitle) (\(selectedExerciseType.primaryMetricUnit)).
+        Adjustment: \(adjustmentSummaryText)
+        """
+
         let session = ExerciseSession(
             exerciseType: selectedExerciseType,
             startedAt: startedAt,
@@ -183,7 +296,23 @@ final class LiveSessionViewModel: ObservableObject {
             repetitionCount: reps,
             averageKneeAngle: averageMetric,
             qualityScore: computedQuality,
-            notes: notes
+            notes: notes,
+            averageSymmetryScore: averageSymmetry,
+            averageEccentricTempo: avgEccentricTempo,
+            averageConcentricTempo: avgConcentricTempo,
+            painScore: painScore,
+            rpeGoal: rpeGoal,
+            compensationAlertsCount: compensationAlertsCount,
+            clinicianSharingMode: clinicianSharingMode
+        )
+
+        watchSync.sendSessionSummary(
+            WatchSessionSummaryPayload(
+                exerciseType: selectedExerciseType.rawValue,
+                reps: reps,
+                qualityScore: computedQuality,
+                durationSeconds: session.durationSeconds
+            )
         )
 
         Task {
@@ -323,12 +452,12 @@ final class LiveSessionViewModel: ObservableObject {
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.targetProfile = calibratedProfile
+            self.targetProfile = Self.normalizedTargetProfile(calibratedProfile, bounds: self.safetyMetricBounds)
             self.persistTargetProfile()
             self.isCalibrating = false
             self.isCalibrationReady = true
             self.calibrationProgress = 1
-            self.calibrationMessage = "Calibrated \(calibratedProfile.updatedAt.formatted(date: .abbreviated, time: .shortened)). Adaptive learning is active."
+            self.calibrationMessage = "Calibrated \(calibratedProfile.updatedAt.formatted(date: .abbreviated, time: .shortened)). Adaptive learning active."
             self.feedback = "Calibration complete. Start your session."
             self.trackingState = .idle
             self.formAlignmentScore = 0
@@ -346,11 +475,26 @@ final class LiveSessionViewModel: ObservableObject {
         let activeTargets = targetProfile.jointTargets
         let alignmentScore = calculateFormAlignmentScore(for: frame, targets: activeTargets)
 
+        let symmetry = calculateSymmetry(frame: frame)
+        let sessionNow = Date()
+        let metricValue = snapshot?.primaryMetricValue
+        if let metricValue {
+            updateTempo(metric: metricValue, timestamp: sessionNow)
+        }
+
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.visibleJointCount = jointCount
             self.latestPoseFrame = frame
             self.formAlignmentScore = alignmentScore
+            self.symmetryScore = symmetry.score
+
+            if let alert = symmetry.alert {
+                self.compensationAlert = alert
+                self.maybeAnnounceCompensation(alert: alert)
+            } else {
+                self.compensationAlert = nil
+            }
 
             if let snapshot {
                 self.repetitionCount = snapshot.repetitionCount
@@ -360,7 +504,7 @@ final class LiveSessionViewModel: ObservableObject {
                 self.announceRepetitionIfNeeded(snapshot.repetitionCount)
             }
 
-            if let value = snapshot?.primaryMetricValue {
+            if let value = metricValue {
                 self.trackingState = .tracking
                 self.currentPrimaryMetricValue = value
                 self.metricInTargetRange = self.targetMetricRange.contains(value)
@@ -384,7 +528,35 @@ final class LiveSessionViewModel: ObservableObject {
                 self.feedback = needsVisibilityFeedback
                 self.announceFeedbackIfNeeded(needsVisibilityFeedback)
             }
+
+            self.watchReachable = self.watchSync.isReachable
+            self.pushWatchUpdateIfNeeded()
         }
+    }
+
+    private func pushWatchUpdateIfNeeded() {
+        let now = Date()
+        guard now.timeIntervalSince(lastWatchSyncAt) >= watchSyncInterval else { return }
+        lastWatchSyncAt = now
+
+        watchSync.sendLiveUpdate(
+            WatchLivePayload(
+                exerciseType: selectedExerciseType.rawValue,
+                reps: repetitionCount,
+                qualityScore: qualityScore,
+                symmetryScore: symmetryScore,
+                tempoScore: tempoScore,
+                paceLabel: movementPhaseLabel
+            )
+        )
+    }
+
+    private func maybeAnnounceCompensation(alert: String) {
+        let now = Date()
+        guard now.timeIntervalSince(lastCompensationAnnouncementAt) >= compensationAnnouncementInterval else { return }
+        lastCompensationAnnouncementAt = now
+        compensationAlertsCount += 1
+        voiceCoach.announce(alert, priority: .high)
     }
 
     private func announceFeedbackIfNeeded(_ message: String) {
@@ -417,9 +589,9 @@ final class LiveSessionViewModel: ObservableObject {
             guard !points.isEmpty else { continue }
             let xValues = points.map { $0.x }
             let yValues = points.map { $0.y }
-            let adaptivePadding = adaptivePadding(for: joint)
-            let desiredX = (xValues.minimum - adaptivePadding.x)...(xValues.maximum + adaptivePadding.x)
-            let desiredY = (yValues.minimum - adaptivePadding.y)...(yValues.maximum + adaptivePadding.y)
+            let padding = adaptivePadding(for: joint)
+            let desiredX = (xValues.minimum - padding.x)...(xValues.maximum + padding.x)
+            let desiredY = (yValues.minimum - padding.y)...(yValues.maximum + padding.y)
 
             let desired = JointTarget(
                 x: clampedUnitRange(desiredX),
@@ -440,7 +612,7 @@ final class LiveSessionViewModel: ObservableObject {
 
         updatedProfile.source = .adaptive
         updatedProfile.updatedAt = Date()
-        targetProfile = updatedProfile
+        targetProfile = Self.normalizedTargetProfile(updatedProfile, bounds: safetyMetricBounds)
         calibrationMessage = "Adaptive targets refreshed from recent high-quality reps."
         persistTargetProfile()
     }
@@ -504,13 +676,139 @@ final class LiveSessionViewModel: ObservableObject {
         return clampedMetricRange(learned)
     }
 
-    private func clampedMetricRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
-        switch selectedExerciseType {
-        case .calfRaise:
-            return max(0.3, range.lowerBound)...min(8.5, range.upperBound)
-        case .squat, .sitToStand, .lunge, .miniSquat:
-            return max(45, range.lowerBound)...min(178, range.upperBound)
+    private func calculateSymmetry(frame: PoseFrame) -> (score: Double, alert: String?) {
+        guard
+            let leftAngle = kneeAngle(hip: .leftHip, knee: .leftKnee, ankle: .leftAnkle, frame: frame),
+            let rightAngle = kneeAngle(hip: .rightHip, knee: .rightKnee, ankle: .rightAnkle, frame: frame)
+        else {
+            return (score: 0, alert: nil)
         }
+
+        let angleDelta = abs(leftAngle - rightAngle)
+        let symmetry = max(0, 100 - (angleDelta * 4.2))
+        symmetrySamples.append(symmetry)
+        if symmetrySamples.count > 1500 {
+            symmetrySamples.removeFirst(symmetrySamples.count - 1500)
+        }
+
+        let leftOffset = abs((frame.point(for: .leftKnee)?.x ?? 0) - (frame.point(for: .leftAnkle)?.x ?? 0))
+        let rightOffset = abs((frame.point(for: .rightKnee)?.x ?? 0) - (frame.point(for: .rightAnkle)?.x ?? 0))
+
+        if angleDelta > 16 {
+            return (symmetry, "Compensation alert: weight shift detected. Balance both legs.")
+        }
+
+        if max(leftOffset, rightOffset) > (selectedExerciseType == .lunge ? 0.28 : 0.20) {
+            return (symmetry, "Compensation alert: knee track drift. Keep knees over ankles.")
+        }
+
+        return (symmetry, nil)
+    }
+
+    private func updateTempo(metric: Double, timestamp: Date) {
+        defer {
+            previousMetricValue = metric
+            previousMetricTimestamp = timestamp
+        }
+
+        guard let previousMetricValue else { return }
+        let delta = metric - previousMetricValue
+        let threshold = selectedExerciseType == .calfRaise ? 0.2 : 1.4
+
+        let nextPhase: MovementPhase
+        if selectedExerciseType == .calfRaise {
+            if delta > threshold {
+                nextPhase = .concentric
+            } else if delta < -threshold {
+                nextPhase = .eccentric
+            } else {
+                nextPhase = .steady
+            }
+        } else {
+            if delta < -threshold {
+                nextPhase = .eccentric
+            } else if delta > threshold {
+                nextPhase = .concentric
+            } else {
+                nextPhase = .steady
+            }
+        }
+
+        if nextPhase == .steady {
+            movementPhaseLabel = MovementPhase.steady.label
+            return
+        }
+
+        if currentMovementPhase != nextPhase {
+            if
+                let phaseStartedAt,
+                currentMovementPhase == .eccentric || currentMovementPhase == .concentric
+            {
+                let duration = max(0, timestamp.timeIntervalSince(phaseStartedAt))
+                if currentMovementPhase == .eccentric {
+                    eccentricTempoSamples.append(duration)
+                    if eccentricTempoSamples.count > 100 {
+                        eccentricTempoSamples.removeFirst(eccentricTempoSamples.count - 100)
+                    }
+                    eccentricTempo = eccentricTempoSamples.average
+                } else if currentMovementPhase == .concentric {
+                    concentricTempoSamples.append(duration)
+                    if concentricTempoSamples.count > 100 {
+                        concentricTempoSamples.removeFirst(concentricTempoSamples.count - 100)
+                    }
+                    concentricTempo = concentricTempoSamples.average
+                }
+            }
+
+            currentMovementPhase = nextPhase
+            phaseStartedAt = timestamp
+            movementPhaseLabel = nextPhase.label
+            maybeEmitMetronomeCue(for: nextPhase)
+        }
+
+        let eccentricScore = tempoComponentScore(tempo: eccentricTempo)
+        let concentricScore = tempoComponentScore(tempo: concentricTempo)
+
+        if eccentricScore > 0 && concentricScore > 0 {
+            tempoScore = (eccentricScore + concentricScore) / 2
+        } else {
+            tempoScore = max(eccentricScore, concentricScore)
+        }
+    }
+
+    private func tempoComponentScore(tempo: Double) -> Double {
+        guard tempo > 0 else { return 0 }
+        let delta = abs(tempo - tempoTargetSeconds)
+        let score = 100 - (delta / tempoTargetSeconds * 120)
+        return max(0, min(100, score))
+    }
+
+    private func maybeEmitMetronomeCue(for phase: MovementPhase) {
+        guard metronomeEnabled else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastMetronomeCueAt) >= metronomeCueInterval else { return }
+        lastMetronomeCueAt = now
+
+        AudioServicesPlaySystemSound(1104)
+
+        switch phase {
+        case .eccentric:
+            voiceCoach.announce("Down on a two count.", priority: .normal)
+        case .concentric:
+            voiceCoach.announce("Up on a two count.", priority: .normal)
+        case .idle, .steady:
+            break
+        }
+    }
+
+    private func clampedMetricRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
+        let lower = max(safetyMetricBounds.lowerBound, range.lowerBound)
+        let upper = min(safetyMetricBounds.upperBound, range.upperBound)
+        if lower >= upper {
+            return safetyMetricBounds
+        }
+        return lower...upper
     }
 
     private func calculateFormAlignmentScore(
@@ -529,9 +827,7 @@ final class LiveSessionViewModel: ObservableObject {
             }
 
             totalChecks += 1
-            let withinX = target.x.contains(point.x)
-            let withinY = target.y.contains(point.y)
-            if withinX && withinY {
+            if target.x.contains(point.x) && target.y.contains(point.y) {
                 successfulChecks += 1
             }
         }
@@ -631,7 +927,7 @@ final class LiveSessionViewModel: ObservableObject {
     private func blend(_ lhs: ClosedRange<Double>, _ rhs: ClosedRange<Double>, alpha: Double) -> ClosedRange<Double> {
         let lower = ((1 - alpha) * lhs.lowerBound) + (alpha * rhs.lowerBound)
         let upper = ((1 - alpha) * lhs.upperBound) + (alpha * rhs.upperBound)
-        return lower...upper
+        return clampedMetricRange(lower...upper)
     }
 
     private func clampedUnitRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
@@ -652,6 +948,105 @@ final class LiveSessionViewModel: ObservableObject {
 
     private static func targetProfileStorageKey(for exercise: ExerciseType) -> String {
         "motion.rehab.targetProfile.\(exercise.rawValue)"
+    }
+
+    private static func normalizedTargetProfile(_ profile: TargetProfile, bounds: ClosedRange<Double>) -> TargetProfile {
+        var normalized = profile
+        let lower = max(bounds.lowerBound, profile.metricRange.lowerBound)
+        let upper = min(bounds.upperBound, profile.metricRange.upperBound)
+        normalized.metricRange = lower < upper ? (lower...upper) : bounds
+        return normalized
+    }
+
+    private static func defaultTempoTarget(for exercise: ExerciseType) -> Double {
+        switch exercise {
+        case .squat:
+            return 2.2
+        case .sitToStand:
+            return 2.1
+        case .lunge:
+            return 2.0
+        case .miniSquat:
+            return 2.4
+        case .calfRaise:
+            return 1.8
+        }
+    }
+
+    private static func adjustMetricRange(
+        _ base: ClosedRange<Double>,
+        exerciseType: ExerciseType,
+        painScore: Int,
+        rpeGoal: Int
+    ) -> ClosedRange<Double> {
+        switch exerciseType {
+        case .calfRaise:
+            var lower = base.lowerBound
+            var upper = base.upperBound
+            if painScore >= 7 {
+                upper *= 0.80
+            } else if painScore >= 4 {
+                upper *= 0.90
+            }
+            if rpeGoal <= 4 {
+                upper *= 0.88
+            }
+            if rpeGoal >= 8 {
+                upper *= 1.05
+            }
+            lower = max(0.3, lower)
+            upper = min(8.5, upper)
+            return lower...max(lower + 0.4, upper)
+        case .squat, .sitToStand, .lunge, .miniSquat:
+            let center = (base.lowerBound + base.upperBound) / 2
+            let halfWidth = (base.upperBound - base.lowerBound) / 2
+            var shift = 0.0
+            var widthFactor = 1.0
+
+            if painScore >= 7 {
+                shift += 12
+                widthFactor *= 0.78
+            } else if painScore >= 4 {
+                shift += 6
+                widthFactor *= 0.88
+            }
+
+            if rpeGoal <= 4 {
+                shift += 4
+                widthFactor *= 0.90
+            } else if rpeGoal >= 8 {
+                shift -= 2
+                widthFactor *= 1.05
+            }
+
+            let adjustedHalfWidth = max(8.0, halfWidth * widthFactor)
+            let adjustedCenter = center + shift
+            let lower = max(45, adjustedCenter - adjustedHalfWidth)
+            let upper = min(178, adjustedCenter + adjustedHalfWidth)
+            return lower...max(lower + 10, upper)
+        }
+    }
+
+    private static func makeAdjustmentSummary(
+        exerciseType: ExerciseType,
+        painScore: Int,
+        rpeGoal: Int
+    ) -> String {
+        let intensity: String
+        if painScore >= 7 || rpeGoal <= 4 {
+            intensity = "Conservative intensity"
+        } else if painScore >= 4 || rpeGoal <= 6 {
+            intensity = "Moderate intensity"
+        } else {
+            intensity = "Standard intensity"
+        }
+
+        switch exerciseType {
+        case .calfRaise:
+            return "\(intensity). Target lift adjusted for pain \(painScore)/10 and RPE \(rpeGoal)/10."
+        case .squat, .sitToStand, .lunge, .miniSquat:
+            return "\(intensity). Depth target adjusted for pain \(painScore)/10 and RPE \(rpeGoal)/10."
+        }
     }
 
     private static func defaultTargetProfile(for exercise: ExerciseType) -> TargetProfile {
