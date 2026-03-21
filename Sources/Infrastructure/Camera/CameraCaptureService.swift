@@ -82,8 +82,8 @@ final class CameraCaptureService: NSObject {
         session.addOutput(output)
 
         if let connection = output.connection(with: .video),
-           connection.isVideoRotationAngleSupported(90) {
-            connection.videoRotationAngle = 90
+           connection.isVideoMirroringSupported {
+            connection.isVideoMirrored = true
         }
 
         session.commitConfiguration()

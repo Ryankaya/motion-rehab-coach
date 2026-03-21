@@ -2,11 +2,19 @@ import AVFoundation
 import Foundation
 
 final class LiveSessionViewModel: ObservableObject {
+    enum TrackingState {
+        case idle
+        case searching
+        case tracking
+    }
+
     @Published private(set) var isSessionRunning = false
     @Published private(set) var repetitionCount = 0
     @Published private(set) var qualityScore = 0.0
     @Published private(set) var currentKneeAngle = 0.0
     @Published private(set) var feedback = "Ready"
+    @Published private(set) var trackingState: TrackingState = .idle
+    @Published private(set) var visibleJointCount = 0
     @Published var errorMessage: String?
     @Published var cameraAccessDenied = false
 
@@ -21,6 +29,7 @@ final class LiveSessionViewModel: ObservableObject {
 
     private var startedAt: Date?
     private var kneeAngleSamples: [Double] = []
+    private var missedPoseFrameCount = 0
 
     init(
         sessionStore: any SessionStore,
@@ -45,12 +54,15 @@ final class LiveSessionViewModel: ObservableObject {
                 await MainActor.run {
                     startedAt = Date()
                     kneeAngleSamples.removeAll(keepingCapacity: true)
+                    missedPoseFrameCount = 0
                     analyzer.reset()
                     isSessionRunning = true
                     repetitionCount = 0
                     qualityScore = 0
                     currentKneeAngle = 0
-                    feedback = "Session started"
+                    visibleJointCount = 0
+                    trackingState = .searching
+                    feedback = "Session started. Keep hips, knees, and ankles in frame."
                     errorMessage = nil
                     cameraAccessDenied = false
                 }
@@ -72,6 +84,7 @@ final class LiveSessionViewModel: ObservableObject {
 
         guard let startedAt else {
             isSessionRunning = false
+            trackingState = .idle
             return
         }
 
@@ -81,6 +94,8 @@ final class LiveSessionViewModel: ObservableObject {
         let reps = repetitionCount
 
         isSessionRunning = false
+        trackingState = .idle
+        visibleJointCount = 0
         feedback = "Session saved"
 
         let session = ExerciseSession(
@@ -108,28 +123,48 @@ final class LiveSessionViewModel: ObservableObject {
         guard isSessionRunning else { return }
 
         do {
-            guard let frame = try poseEstimator.estimatePose(in: pixelBuffer),
-                  let snapshot = analyzer.process(frame)
-            else {
+            guard let frame = try poseEstimator.estimatePose(in: pixelBuffer) else {
+                missedPoseFrameCount += 1
+                if missedPoseFrameCount % 8 == 0 {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        self.trackingState = .searching
+                        self.visibleJointCount = 0
+                        self.feedback = "No pose detected. Step back so your full lower body is visible."
+                    }
+                }
                 return
             }
 
+            missedPoseFrameCount = 0
+            let snapshot = analyzer.process(frame)
+            let jointCount = frame.joints.count
+
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.repetitionCount = snapshot.repetitionCount
-                self.qualityScore = snapshot.qualityScore
-                self.feedback = snapshot.feedback
+                self.visibleJointCount = jointCount
 
-                if let angle = snapshot.currentKneeAngle {
+                if let snapshot {
+                    self.repetitionCount = snapshot.repetitionCount
+                    self.qualityScore = snapshot.qualityScore
+                    self.feedback = snapshot.feedback
+                }
+
+                if let angle = snapshot?.currentKneeAngle {
+                    self.trackingState = .tracking
                     self.currentKneeAngle = angle
                     self.kneeAngleSamples.append(angle)
                     if self.kneeAngleSamples.count > 1500 {
                         self.kneeAngleSamples.removeFirst(self.kneeAngleSamples.count - 1500)
                     }
+                } else {
+                    self.trackingState = .searching
+                    self.feedback = "Pose found (\(jointCount)/6 joints). Keep knees and ankles fully visible."
                 }
             }
         } catch {
             DispatchQueue.main.async { [weak self] in
+                self?.trackingState = .searching
                 self?.errorMessage = "Pose estimation error: \(error.localizedDescription)"
             }
         }
