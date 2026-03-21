@@ -12,6 +12,7 @@ struct LiveSessionView: View {
         ScrollView {
             VStack(spacing: 14) {
                 headerCard
+                calibrationCard
                 trackingStatusBanner
                 movementGuideCard
                 cameraCard
@@ -23,11 +24,6 @@ struct LiveSessionView: View {
         .background(backgroundGradient.ignoresSafeArea())
         .navigationTitle(viewModel.selectedExerciseType.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if !viewModel.isSessionRunning {
-                viewModel.startSession()
-            }
-        }
     }
 
     private var headerCard: some View {
@@ -47,6 +43,55 @@ struct LiveSessionView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(.white.opacity(0.25))
+        )
+    }
+
+    private var calibrationCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: calibrationIcon)
+                    .foregroundStyle(calibrationTint)
+                Text("Personalized Calibration")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(viewModel.targetProfileSourceLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(viewModel.calibrationMessage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if viewModel.isCalibrating {
+                ProgressView(value: viewModel.calibrationProgress)
+                    .progressViewStyle(.linear)
+                    .tint(Color(red: 0.05, green: 0.44, blue: 0.56))
+                Text("\(Int(viewModel.calibrationProgress * 100))%")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Button(viewModel.isCalibrationReady ? "Recalibrate" : "Run Calibration") {
+                    viewModel.runCalibration()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.03, green: 0.43, blue: 0.53))
+                .disabled(viewModel.isCalibrating || viewModel.isSessionRunning)
+
+                if viewModel.isCalibrationReady {
+                    Label("Ready", systemImage: "checkmark.seal.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(red: 0.11, green: 0.66, blue: 0.33))
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.07))
         )
     }
 
@@ -78,7 +123,7 @@ struct LiveSessionView: View {
 
             PoseCoachingOverlay(
                 frame: viewModel.latestPoseFrame,
-                exerciseType: viewModel.selectedExerciseType,
+                jointTargets: viewModel.jointTargets,
                 metricInTargetRange: viewModel.metricInTargetRange,
                 alignmentScore: viewModel.formAlignmentScore
             )
@@ -138,6 +183,16 @@ struct LiveSessionView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.78, green: 0.18, blue: 0.14))
+            } else if viewModel.isCalibrating {
+                Button("Calibrating...") {}
+                    .buttonStyle(.borderedProminent)
+                    .disabled(true)
+            } else if !viewModel.isCalibrationReady {
+                Button("Run Calibration") {
+                    viewModel.runCalibration()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.03, green: 0.43, blue: 0.53))
             } else {
                 Button("Start Session") {
                     viewModel.startSession()
@@ -180,6 +235,26 @@ struct LiveSessionView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.black.opacity(0.08))
         )
+    }
+
+    private var calibrationIcon: String {
+        if viewModel.isCalibrating {
+            return "viewfinder.circle.fill"
+        }
+        if viewModel.isCalibrationReady {
+            return "checkmark.seal.fill"
+        }
+        return "exclamationmark.triangle.fill"
+    }
+
+    private var calibrationTint: Color {
+        if viewModel.isCalibrating {
+            return Color(red: 0.07, green: 0.48, blue: 0.58)
+        }
+        if viewModel.isCalibrationReady {
+            return Color(red: 0.10, green: 0.66, blue: 0.33)
+        }
+        return Color(red: 0.90, green: 0.56, blue: 0.15)
     }
 
     private var statusText: String {
@@ -351,7 +426,7 @@ private struct MovementGuideAnimationView: View {
 
 private struct PoseCoachingOverlay: View {
     let frame: PoseFrame?
-    let exerciseType: ExerciseType
+    let jointTargets: [BodyJoint: JointTarget]
     let metricInTargetRange: Bool
     let alignmentScore: Double
 
@@ -392,7 +467,9 @@ private struct PoseCoachingOverlay: View {
                         let isValid = isJointInTarget(joint, point: pose)
                         let center = toViewPoint(pose, size: size)
                         let circleRect = CGRect(x: center.x - 4.5, y: center.y - 4.5, width: 9, height: 9)
-                        let color = isValid ? Color(red: 0.11, green: 0.78, blue: 0.35) : Color(red: 0.90, green: 0.27, blue: 0.24)
+                        let color = isValid
+                            ? Color(red: 0.11, green: 0.78, blue: 0.35)
+                            : Color(red: 0.90, green: 0.27, blue: 0.24)
                         context.fill(Path(ellipseIn: circleRect), with: .color(color))
                     }
                 }
@@ -452,17 +529,31 @@ private struct PoseCoachingOverlay: View {
     }
 
     private func laneRect(for side: OverlayBodySide, size: CGSize) -> CGRect {
-        let laneWidth: CGFloat = exerciseType == .lunge ? size.width * 0.34 : size.width * 0.28
-        let centerX: CGFloat = side == .left
-            ? size.width * (exerciseType == .lunge ? 0.33 : 0.32)
-            : size.width * (exerciseType == .lunge ? 0.67 : 0.68)
+        let joints: [BodyJoint] = side == .left
+            ? [.leftHip, .leftKnee, .leftAnkle]
+            : [.rightHip, .rightKnee, .rightAnkle]
 
-        return CGRect(
-            x: centerX - (laneWidth / 2),
-            y: size.height * 0.14,
-            width: laneWidth,
-            height: size.height * 0.74
-        )
+        let targets = joints.compactMap { jointTargets[$0] }
+        guard !targets.isEmpty else {
+            let fallbackX = side == .left ? size.width * 0.32 : size.width * 0.68
+            return CGRect(x: fallbackX - 38, y: size.height * 0.18, width: 76, height: size.height * 0.66)
+        }
+
+        let minX = targets.map { $0.x.lowerBound }.min() ?? 0.2
+        let maxX = targets.map { $0.x.upperBound }.max() ?? 0.8
+        let minY = targets.map { $0.y.lowerBound }.min() ?? 0.1
+        let maxY = targets.map { $0.y.upperBound }.max() ?? 0.9
+
+        let paddedX = clampedUnitRange((minX - 0.02)...(maxX + 0.02))
+        let paddedY = clampedUnitRange((minY - 0.03)...(maxY + 0.03))
+
+        let x = paddedX.lowerBound * size.width
+        let width = max((paddedX.upperBound - paddedX.lowerBound) * size.width, 60)
+        let topY = (1 - paddedY.upperBound) * size.height
+        let bottomY = (1 - paddedY.lowerBound) * size.height
+        let height = max(bottomY - topY, 90)
+
+        return CGRect(x: x, y: topY, width: width, height: height)
     }
 
     private func segmentColor(startValid: Bool, endValid: Bool) -> Color {
@@ -483,49 +574,16 @@ private struct PoseCoachingOverlay: View {
     }
 
     private func isJointInTarget(_ joint: BodyJoint, point: PosePoint) -> Bool {
-        guard let target = jointTargetMap[joint] else { return false }
+        guard let target = jointTargets[joint] else { return false }
         return target.x.contains(point.x) && target.y.contains(point.y)
     }
 
-    private var jointTargetMap: [BodyJoint: OverlayJointTarget] {
-        switch exerciseType {
-        case .lunge:
-            return [
-                .leftHip: .init(x: 0.14...0.56, y: 0.56...0.92),
-                .rightHip: .init(x: 0.44...0.86, y: 0.56...0.92),
-                .leftKnee: .init(x: 0.10...0.58, y: 0.26...0.76),
-                .rightKnee: .init(x: 0.42...0.90, y: 0.26...0.76),
-                .leftAnkle: .init(x: 0.08...0.60, y: 0.05...0.50),
-                .rightAnkle: .init(x: 0.40...0.92, y: 0.05...0.50)
-            ]
-        case .sitToStand:
-            return [
-                .leftHip: .init(x: 0.24...0.50, y: 0.54...0.90),
-                .rightHip: .init(x: 0.50...0.76, y: 0.54...0.90),
-                .leftKnee: .init(x: 0.24...0.50, y: 0.32...0.74),
-                .rightKnee: .init(x: 0.50...0.76, y: 0.32...0.74),
-                .leftAnkle: .init(x: 0.24...0.52, y: 0.08...0.46),
-                .rightAnkle: .init(x: 0.48...0.76, y: 0.08...0.46)
-            ]
-        case .squat, .miniSquat, .calfRaise:
-            return [
-                .leftHip: .init(x: 0.18...0.47, y: 0.56...0.92),
-                .rightHip: .init(x: 0.53...0.82, y: 0.56...0.92),
-                .leftKnee: .init(x: 0.16...0.47, y: 0.34...0.74),
-                .rightKnee: .init(x: 0.53...0.84, y: 0.34...0.74),
-                .leftAnkle: .init(x: 0.13...0.49, y: 0.07...0.48),
-                .rightAnkle: .init(x: 0.51...0.87, y: 0.07...0.48)
-            ]
-        }
+    private func clampedUnitRange(_ range: ClosedRange<Double>) -> ClosedRange<Double> {
+        max(0.02, range.lowerBound)...min(0.98, range.upperBound)
     }
 }
 
 private enum OverlayBodySide {
     case left
     case right
-}
-
-private struct OverlayJointTarget {
-    let x: ClosedRange<Double>
-    let y: ClosedRange<Double>
 }
