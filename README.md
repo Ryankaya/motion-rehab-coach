@@ -5,6 +5,7 @@ Motion Rehab Coach is a production-oriented iOS rehabilitation assistant built w
 ## Production feature set
 
 - Real-time camera tracking with Vision pose estimation and robust tracking-state feedback.
+- Apple TV companion app (`motion-rehab-coach-tv`) with Continuity Camera picker and live posture overlay.
 - Multi-program rehab protocols:
   - Bodyweight Squat
   - Sit to Stand
@@ -41,4 +42,11 @@ Motion Rehab Coach is a production-oriented iOS rehabilitation assistant built w
 ```bash
 xcodegen generate
 xcodebuild -project motion-rehab-coach.xcodeproj -scheme motion-rehab-coach -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project motion-rehab-coach.xcodeproj -scheme motion-rehab-coach-tv -destination 'generic/platform=tvOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
+
+## Apple TV flow
+
+1. Open the `motion-rehab-coach-tv` app on Apple TV.
+2. Select **Connect iPhone Camera** to launch Continuity Camera picker.
+3. Choose your iPhone/iPad and start live posture tracking on TV with overlay + details panel.
