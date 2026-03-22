@@ -7,9 +7,13 @@ struct VisionPoseEstimator: PoseEstimating {
     func estimatePose(in pixelBuffer: CVPixelBuffer) throws -> PoseFrame? {
         // Camera pipelines can produce different buffer orientations depending on device and session.
         // Keep the detector robust by trying a compact orientation set and choosing the richest result.
+        #if os(tvOS)
+        let orientations: [CGImagePropertyOrientation] = [.upMirrored, .up]
+        #else
         let orientations: [CGImagePropertyOrientation] = [
             .up, .upMirrored, .leftMirrored, .right, .left, .rightMirrored
         ]
+        #endif
         var best: CandidatePose?
 
         for orientation in orientations {
@@ -29,6 +33,19 @@ struct VisionPoseEstimator: PoseEstimating {
             var confidenceSum: Double = 0
 
             for joint in BodyJoint.allCases {
+                let recognized = try observation.recognizedPoint(joint.visionName)
+                guard recognized.confidence >= minimumConfidence else { continue }
+
+                let confidence = Double(recognized.confidence)
+                joints[joint.rawValue] = PosePoint(
+                    x: Double(recognized.location.x),
+                    y: Double(recognized.location.y),
+                    confidence: confidence
+                )
+                confidenceSum += confidence
+            }
+
+            for joint in SupplementalJoint.allCases {
                 let recognized = try observation.recognizedPoint(joint.visionName)
                 guard recognized.confidence >= minimumConfidence else { continue }
 
@@ -67,6 +84,30 @@ private extension BodyJoint {
         case .rightKnee: return .rightKnee
         case .leftAnkle: return .leftAnkle
         case .rightAnkle: return .rightAnkle
+        }
+    }
+}
+
+private enum SupplementalJoint: String, CaseIterable {
+    case root
+    case neck
+    case leftShoulder
+    case rightShoulder
+    case leftElbow
+    case rightElbow
+    case leftWrist
+    case rightWrist
+
+    var visionName: VNHumanBodyPoseObservation.JointName {
+        switch self {
+        case .root: return .root
+        case .neck: return .neck
+        case .leftShoulder: return .leftShoulder
+        case .rightShoulder: return .rightShoulder
+        case .leftElbow: return .leftElbow
+        case .rightElbow: return .rightElbow
+        case .leftWrist: return .leftWrist
+        case .rightWrist: return .rightWrist
         }
     }
 }

@@ -2,10 +2,13 @@ import Foundation
 
 @MainActor
 final class TVAppContainer: ObservableObject {
-    func makeCoachViewModel() -> TVCoachViewModel {
-        TVCoachViewModel(
+    let coachViewModel: TVCoachViewModel
+
+    init() {
+        coachViewModel = TVCoachViewModel(
             cameraService: TVContinuityCameraService(),
-            poseEstimator: VisionPoseEstimator()
+            poseEstimator: VisionPoseEstimator(),
+            voiceCoach: TVVoiceCoach()
         )
     }
 }

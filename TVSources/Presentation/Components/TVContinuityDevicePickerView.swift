@@ -3,7 +3,7 @@ import AVKit
 import SwiftUI
 
 struct TVContinuityDevicePickerView: UIViewControllerRepresentable {
-    let onConnected: (AVContinuityDevice) -> Void
+    let onConnected: (AVContinuityDevice?) -> Void
     let onCancelled: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -22,26 +22,44 @@ struct TVContinuityDevicePickerView: UIViewControllerRepresentable {
 
 extension TVContinuityDevicePickerView {
     final class Coordinator: NSObject, AVContinuityDevicePickerViewControllerDelegate {
-        private let onConnected: (AVContinuityDevice) -> Void
+        private let onConnected: (AVContinuityDevice?) -> Void
         private let onCancelled: () -> Void
+        private var didComplete = false
 
         init(
-            onConnected: @escaping (AVContinuityDevice) -> Void,
+            onConnected: @escaping (AVContinuityDevice?) -> Void,
             onCancelled: @escaping () -> Void
         ) {
             self.onConnected = onConnected
             self.onCancelled = onCancelled
         }
 
+        @objc(continuityDevicePicker:didConnectDevice:)
         func continuityDevicePicker(
             _ pickerViewController: AVContinuityDevicePickerViewController,
             didConnect device: AVContinuityDevice
         ) {
-            onConnected(device)
+            didComplete = true
+            DispatchQueue.main.async { [onConnected] in
+                onConnected(device)
+            }
         }
 
+        @objc(continuityDevicePickerDidCancel:)
         func continuityDevicePickerDidCancel(_ pickerViewController: AVContinuityDevicePickerViewController) {
-            onCancelled()
+            didComplete = true
+            DispatchQueue.main.async { [onCancelled] in
+                onCancelled()
+            }
+        }
+
+        @objc(continuityDevicePickerDidEndPresenting:)
+        func continuityDevicePickerDidEndPresenting(_ pickerViewController: AVContinuityDevicePickerViewController) {
+            guard !didComplete else { return }
+            didComplete = true
+            DispatchQueue.main.async { [onConnected] in
+                onConnected(nil)
+            }
         }
     }
 }

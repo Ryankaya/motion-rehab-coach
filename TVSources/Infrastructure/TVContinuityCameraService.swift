@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CoreMedia
 import CoreVideo
 import Foundation
 
@@ -11,23 +12,25 @@ final class TVContinuityCameraService: NSObject {
 
     let session = AVCaptureSession()
     var onFrame: ((CVPixelBuffer) -> Void)?
+    var isFrameProcessingEnabled: Bool { true }
 
     private let sessionQueue = DispatchQueue(label: "motion.rehab.tv.capture")
     private var configuredDeviceID: String?
+    private var focusPreset: TVFramingMode = .feetToHalfBody
 
     var continuityCameraCount: Int {
         continuityCameras().count
     }
 
     var currentCameraDisplayName: String {
-        guard let camera = currentPreferredCamera() else {
+        guard let camera = currentPreferredCamera(preferredCameraID: nil) else {
             return "No camera connected"
         }
         return camera.localizedName
     }
 
-    func startUsingPreferredCamera() throws {
-        guard let preferredCamera = currentPreferredCamera() else {
+    func startUsingPreferredCamera(preferredCameraID: String? = nil) throws {
+        guard let preferredCamera = currentPreferredCamera(preferredCameraID: preferredCameraID) else {
             throw CameraError.continuityUnavailable
         }
 
@@ -47,6 +50,20 @@ final class TVContinuityCameraService: NSObject {
         }
     }
 
+    func applyFocusPreset(_ mode: TVFramingMode) {
+        focusPreset = mode
+
+        sessionQueue.async { [weak self] in
+            guard
+                let self,
+                let camera = self.currentPreferredCamera(preferredCameraID: nil)
+            else {
+                return
+            }
+            self.configureLowerBodyFramingIfSupported(camera, mode: mode)
+        }
+    }
+
     private func continuityCameras() -> [AVCaptureDevice] {
         AVCaptureDevice.DiscoverySession(
             deviceTypes: [.continuityCamera],
@@ -55,21 +72,47 @@ final class TVContinuityCameraService: NSObject {
         ).devices
     }
 
-    private func currentPreferredCamera() -> AVCaptureDevice? {
-        if let camera = AVCaptureDevice.systemPreferredCamera, camera.isContinuityCamera {
-            return camera
+    private func currentPreferredCamera(preferredCameraID: String?) -> AVCaptureDevice? {
+        let cameras = continuityCameras().filter(isUsableCamera)
+
+        if
+            let preferredCameraID,
+            let selectedCamera = cameras.first(where: { $0.uniqueID == preferredCameraID })
+        {
+            return selectedCamera
         }
 
-        return continuityCameras().first
+        return cameras.first
+    }
+
+    private func isUsableCamera(_ camera: AVCaptureDevice) -> Bool {
+        guard camera.isConnected else { return false }
+
+        return camera.formats.contains { format in
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            return dimensions.width > 0 && dimensions.height > 0
+        }
     }
 
     private func configureSession(using camera: AVCaptureDevice) throws {
+        guard isUsableCamera(camera) else {
+            throw CameraError.continuityUnavailable
+        }
+
         if configuredDeviceID == camera.uniqueID {
             return
         }
 
+        if session.isRunning {
+            session.stopRunning()
+        }
+
         session.beginConfiguration()
-        session.sessionPreset = .high
+        // Keep continuity configuration conservative; aggressive preset/format mutations can
+        // trigger unsupported active format exceptions on some iPhone/tvOS combinations.
+        if session.canSetSessionPreset(.high) {
+            session.sessionPreset = .high
+        }
 
         session.inputs.forEach { input in
             session.removeInput(input)
@@ -84,11 +127,14 @@ final class TVContinuityCameraService: NSObject {
         }
         session.addInput(input)
 
+        let activeDimensions = CMVideoFormatDescriptionGetDimensions(camera.activeFormat.formatDescription)
+        guard activeDimensions.width > 0, activeDimensions.height > 0 else {
+            session.commitConfiguration()
+            throw CameraError.continuityUnavailable
+        }
+
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
-        output.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-        ]
         output.setSampleBufferDelegate(self, queue: sessionQueue)
 
         guard session.canAddOutput(output) else {
@@ -97,13 +143,54 @@ final class TVContinuityCameraService: NSObject {
         }
         session.addOutput(output)
 
-        if let connection = output.connection(with: .video), connection.isVideoMirroringSupported {
-            connection.isVideoMirrored = true
-        }
-
         session.commitConfiguration()
         configuredDeviceID = camera.uniqueID
+
+        // Apply focus tuning after the session graph is committed to avoid null active-format states.
+        configureLowerBodyFramingIfSupported(camera, mode: focusPreset)
     }
+
+    private func configureLowerBodyFramingIfSupported(_ camera: AVCaptureDevice, mode: TVFramingMode) {
+        guard camera.isConnected else { return }
+        guard !camera.formats.isEmpty else { return }
+
+        do {
+            try camera.lockForConfiguration()
+            defer { camera.unlockForConfiguration() }
+
+            let lowerBodyPoint = pointOfInterest(for: mode)
+
+            if camera.isFocusPointOfInterestSupported {
+                camera.focusPointOfInterest = lowerBodyPoint
+            }
+            if camera.isFocusModeSupported(.continuousAutoFocus) {
+                camera.focusMode = .continuousAutoFocus
+            }
+
+            if camera.isExposurePointOfInterestSupported {
+                camera.exposurePointOfInterest = lowerBodyPoint
+            }
+            if camera.isExposureModeSupported(.continuousAutoExposure) {
+                camera.exposureMode = .continuousAutoExposure
+            }
+        } catch {
+            // Continue with default continuity framing if configuration is restricted.
+        }
+    }
+
+    private func pointOfInterest(for mode: TVFramingMode) -> CGPoint {
+        switch mode {
+        case .fullBody:
+            return CGPoint(x: 0.5, y: 0.56)
+        case .feetToHalfBody:
+            return CGPoint(x: 0.5, y: 0.80)
+        case .kneeFocus:
+            return CGPoint(x: 0.5, y: 0.72)
+        case .heelFocus:
+            return CGPoint(x: 0.5, y: 0.88)
+        }
+    }
+
 }
 
 extension TVContinuityCameraService: AVCaptureVideoDataOutputSampleBufferDelegate {

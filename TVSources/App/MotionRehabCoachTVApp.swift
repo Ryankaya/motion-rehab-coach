@@ -6,7 +6,7 @@ struct MotionRehabCoachTVApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TVCoachHomeView(viewModel: container.makeCoachViewModel())
+            TVCoachHomeView(viewModel: container.coachViewModel)
         }
     }
 }

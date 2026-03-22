@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,8 +14,10 @@
 		1542E5FAFF29A02BF0CC1D6D /* TVAppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22FAFD95F44E9619AC36B7CB /* TVAppContainer.swift */; };
 		18AFCD85C260DA08A28E6A92 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAF9172FC16503F241AE9E2 /* DashboardView.swift */; };
 		28014CB5AA2495983853D512 /* VisionPoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57040F8928A890482001E3C0 /* VisionPoseEstimator.swift */; };
+		293F90CC07DAB44CFB916669 /* TVExerciseProgram.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02BFDED4008A30F7775F0BDE /* TVExerciseProgram.swift */; };
 		3994B52E084BFA02127B5DC1 /* MetricCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750B21F416378E2B1AADBD2F /* MetricCardView.swift */; };
 		413F2BDA710AA976479FA1C9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */; };
+		428E9325D798C92DB2407C2F /* TVCameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCEAB6DD7D63B19654FED98E /* TVCameraPreviewView.swift */; };
 		4901057460BC6BF0BFBC0F8A /* PoseFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB6BD3C4A9D0EA0111B4A95 /* PoseFrame.swift */; };
 		5E528B09C46EC97733FAE997 /* TVContinuityDevicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC53F0044B13CB8225F98B8 /* TVContinuityDevicePickerView.swift */; };
 		6134BF049BC13D9AD9A33088 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F4A54DA3767AD086174189 /* SessionStore.swift */; };
@@ -27,7 +29,9 @@
 		A27FF48A197A00960F88BBE6 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66F2923E73CAAFFAA7A59552 /* SessionHistoryView.swift */; };
 		A5C3A7759CD7DD49BD718758 /* PosePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 529C89E1E22E7972FB144D08 /* PosePoint.swift */; };
 		A686D4888F2C9E097017A18D /* LiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A09792262A1B6BCFAC52886E /* LiveSessionView.swift */; };
+		B1314AAE804CD8E9B306672E /* TVVoiceCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23E317A9119B578BC708BFC /* TVVoiceCoach.swift */; };
 		BAFA3018B6126604616751C4 /* RepetitionAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21A9E16C05CF1CE9A9558D7 /* RepetitionAnalyzerTests.swift */; };
+		BD8A059FD1B637C9C426C148 /* TVFramingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2072F4E184764F8547C20A2 /* TVFramingMode.swift */; };
 		C1967AE01F842DE05A131904 /* ExerciseType.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFB388C6F8F95101758F4DEC /* ExerciseType.swift */; };
 		C41A6E5C781295B153DE3FCE /* TVContinuityCameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAE8946342EA79BC02ADE60 /* TVContinuityCameraService.swift */; };
 		C54F4092E495AA86ED26FC72 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0413B865B45FC3D2A4EF09 /* AppContainer.swift */; };
@@ -53,13 +57,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		02BFDED4008A30F7775F0BDE /* TVExerciseProgram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVExerciseProgram.swift; sourceTree = "<group>"; };
 		0F8D34C37E9B5BE47589FD18 /* RepetitionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionAnalyzer.swift; sourceTree = "<group>"; };
 		12AB7D0DD6241AF23A20B980 /* SessionHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryViewModel.swift; sourceTree = "<group>"; };
 		1B9488D7E3383819986E3006 /* TVCoachHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVCoachHomeView.swift; sourceTree = "<group>"; };
 		1BC53F0044B13CB8225F98B8 /* TVContinuityDevicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVContinuityDevicePickerView.swift; sourceTree = "<group>"; };
 		22FAFD95F44E9619AC36B7CB /* TVAppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVAppContainer.swift; sourceTree = "<group>"; };
 		2EAE8946342EA79BC02ADE60 /* TVContinuityCameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVContinuityCameraService.swift; sourceTree = "<group>"; };
-		34CBDE888F304B2BFDC5EE7C /* motion-rehab-coach-tv.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "motion-rehab-coach-tv.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		34CBDE888F304B2BFDC5EE7C /* motion-rehab-coach-tv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "motion-rehab-coach-tv.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F4648E68D886FF6A6B0A45C /* TVCoachViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVCoachViewModel.swift; sourceTree = "<group>"; };
 		472E029F738896ECEB11AE9C /* VoiceCoaching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoaching.swift; sourceTree = "<group>"; };
 		47F4A54DA3767AD086174189 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
@@ -79,10 +84,13 @@
 		9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "motion-rehab-coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		A09792262A1B6BCFAC52886E /* LiveSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionView.swift; sourceTree = "<group>"; };
+		A2072F4E184764F8547C20A2 /* TVFramingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVFramingMode.swift; sourceTree = "<group>"; };
 		A21A9E16C05CF1CE9A9558D7 /* RepetitionAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionAnalyzerTests.swift; sourceTree = "<group>"; };
 		A6F1D29EDF3CDA292A482302 /* MotionRehabCoachTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRehabCoachTVApp.swift; sourceTree = "<group>"; };
 		BEB6BD3C4A9D0EA0111B4A95 /* PoseFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseFrame.swift; sourceTree = "<group>"; };
+		CCEAB6DD7D63B19654FED98E /* TVCameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVCameraPreviewView.swift; sourceTree = "<group>"; };
 		DFB388C6F8F95101758F4DEC /* ExerciseType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseType.swift; sourceTree = "<group>"; };
+		E23E317A9119B578BC708BFC /* TVVoiceCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVVoiceCoach.swift; sourceTree = "<group>"; };
 		EA83895F7592A54EA44C22F4 /* PoseEstimating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseEstimating.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -130,6 +138,7 @@
 		3BE3496CCE3F883A08F58E6E /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				CCEAB6DD7D63B19654FED98E /* TVCameraPreviewView.swift */,
 				1BC53F0044B13CB8225F98B8 /* TVContinuityDevicePickerView.swift */,
 			);
 			path = Components;
@@ -140,6 +149,7 @@
 			children = (
 				0148303ED5CC333BCBC2AAF7 /* App */,
 				A9F45467AD4ED3A41D8E89B4 /* Application */,
+				5F6381571FACF3D14EA5D75E /* Domain */,
 				E5A32A8A625719F9186836DD /* Infrastructure */,
 				B1F2BE0090D8EB13A42C5050 /* Presentation */,
 			);
@@ -163,6 +173,15 @@
 				750B21F416378E2B1AADBD2F /* MetricCardView.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		5F6381571FACF3D14EA5D75E /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				02BFDED4008A30F7775F0BDE /* TVExerciseProgram.swift */,
+				A2072F4E184764F8547C20A2 /* TVFramingMode.swift */,
+			);
+			path = Domain;
 			sourceTree = "<group>";
 		};
 		68C816F4AE03FD945424D454 /* Tests */ = {
@@ -276,6 +295,7 @@
 			isa = PBXGroup;
 			children = (
 				2EAE8946342EA79BC02ADE60 /* TVContinuityCameraService.swift */,
+				E23E317A9119B578BC708BFC /* TVVoiceCoach.swift */,
 			);
 			path = Infrastructure;
 			sourceTree = "<group>";
@@ -406,7 +426,6 @@
 			);
 			mainGroup = 53ADE79A74EA376CE6AAF027;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -464,10 +483,14 @@
 				4901057460BC6BF0BFBC0F8A /* PoseFrame.swift in Sources */,
 				6600DEC53013F48AE7B50C91 /* PosePoint.swift in Sources */,
 				1542E5FAFF29A02BF0CC1D6D /* TVAppContainer.swift in Sources */,
+				428E9325D798C92DB2407C2F /* TVCameraPreviewView.swift in Sources */,
 				FF827D91D13F8CA346A91CDA /* TVCoachHomeView.swift in Sources */,
 				947496A0025693CA21FB1AE0 /* TVCoachViewModel.swift in Sources */,
 				C41A6E5C781295B153DE3FCE /* TVContinuityCameraService.swift in Sources */,
 				5E528B09C46EC97733FAE997 /* TVContinuityDevicePickerView.swift in Sources */,
+				293F90CC07DAB44CFB916669 /* TVExerciseProgram.swift in Sources */,
+				BD8A059FD1B637C9C426C148 /* TVFramingMode.swift in Sources */,
+				B1314AAE804CD8E9B306672E /* TVVoiceCoach.swift in Sources */,
 				0E4D873E3812B2A142D0FCA0 /* VisionPoseEstimator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -490,6 +513,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoachTV;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach TV uses Continuity Camera to display posture coaching on Apple TV.";
@@ -512,6 +536,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoachTV;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach TV uses Continuity Camera to display posture coaching on Apple TV.";
