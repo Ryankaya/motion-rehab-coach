@@ -2,7 +2,6 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var container: AppContainer
-    @StateObject private var historyViewModel: SessionHistoryViewModel
 
     @State private var selectedExerciseType: ExerciseType = .squat
     @State private var painScore = 2.0
@@ -12,7 +11,6 @@ struct DashboardView: View {
 
     init(container: AppContainer) {
         self.container = container
-        _historyViewModel = StateObject(wrappedValue: container.makeSessionHistoryViewModel())
     }
 
     var body: some View {
@@ -27,20 +25,11 @@ struct DashboardView: View {
                         exercisePickerCard
                         readinessCard
                         startSessionCard
-                        SessionHistoryView(viewModel: historyViewModel)
                     }
                     .padding(16)
                 }
             }
-            .navigationTitle("Dashboard")
-            .toolbar {
-                Button("Refresh") {
-                    Task { await historyViewModel.load() }
-                }
-            }
-        }
-        .task {
-            await historyViewModel.load()
+            .navigationTitle("Coach")
         }
     }
 
@@ -295,6 +284,50 @@ struct DashboardView: View {
             .padding(.vertical, 6)
             .background(Color(red: 0.94, green: 0.98, blue: 1.0), in: Capsule())
             .foregroundStyle(Color(red: 0.02, green: 0.32, blue: 0.51))
+    }
+
+    private var backgroundGradient: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.96, green: 0.98, blue: 1.0),
+                Color(red: 0.90, green: 0.95, blue: 0.98)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+}
+
+struct ProgressDashboardView: View {
+    @StateObject private var historyViewModel: SessionHistoryViewModel
+
+    init(container: AppContainer) {
+        _historyViewModel = StateObject(wrappedValue: container.makeSessionHistoryViewModel())
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                backgroundGradient
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        SessionHistoryView(viewModel: historyViewModel)
+                    }
+                    .padding(16)
+                }
+            }
+            .navigationTitle("Progress")
+            .toolbar {
+                Button("Refresh") {
+                    Task { await historyViewModel.load() }
+                }
+            }
+        }
+        .task {
+            await historyViewModel.load()
+        }
     }
 
     private var backgroundGradient: some View {
