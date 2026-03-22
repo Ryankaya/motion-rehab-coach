@@ -3,6 +3,8 @@ import SwiftUI
 
 struct LiveSessionView: View {
     @StateObject private var viewModel: LiveSessionViewModel
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showAdvancedInsights = false
 
     init(viewModel: LiveSessionViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -13,10 +15,10 @@ struct LiveSessionView: View {
             VStack(spacing: 14) {
                 headerCard
                 calibrationCard
-                trackingStatusBanner
-                movementGuideCard
                 cameraCard
+                trackingStatusBanner
                 metricsGrid
+                advancedInsightsCard
                 actionCard
             }
             .padding(14)
@@ -32,38 +34,14 @@ struct LiveSessionView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                setupBadge(
-                    "Pain \(viewModel.painScore)/10",
-                    color: Color(red: 0.84, green: 0.35, blue: 0.18)
-                )
-                setupBadge(
-                    "RPE \(viewModel.rpeGoal)/10",
-                    color: Color(red: 0.05, green: 0.43, blue: 0.62)
-                )
-
-                if viewModel.clinicianSharingMode {
-                    setupBadge(
-                        "Clinician Mode",
-                        color: Color(red: 0.09, green: 0.62, blue: 0.34)
-                    )
-                }
-            }
-
             Toggle(isOn: $viewModel.voiceCoachingEnabled) {
                 Label("Voice Direction", systemImage: "waveform.and.mic.fill")
                     .font(.subheadline.weight(.semibold))
             }
             .toggleStyle(.switch)
 
-            Toggle(isOn: $viewModel.metronomeEnabled) {
-                Label("Tempo Metronome", systemImage: "metronome.fill")
-                    .font(.subheadline.weight(.semibold))
-            }
-            .toggleStyle(.switch)
-
-            Text(viewModel.protocolAdjustmentSummary)
-                .font(.caption)
+            Text("Pain \(viewModel.painScore)/10 • RPE \(viewModel.rpeGoal)/10")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -187,62 +165,96 @@ struct LiveSessionView: View {
                 )
             }
 
-            HStack(spacing: 10) {
-                MetricCardView(
-                    title: viewModel.primaryMetricTitle,
-                    value: "\(Int(viewModel.currentPrimaryMetricValue))\(viewModel.primaryMetricUnit)",
-                    accent: viewModel.metricInTargetRange
-                        ? Color(red: 0.06, green: 0.62, blue: 0.32)
-                        : Color(red: 0.93, green: 0.40, blue: 0.08)
-                )
-                MetricCardView(
-                    title: "Symmetry",
-                    value: "\(Int(viewModel.symmetryScore))%",
-                    accent: symmetryColor
-                )
-            }
+            MetricCardView(
+                title: viewModel.primaryMetricTitle,
+                value: "\(Int(viewModel.currentPrimaryMetricValue))\(viewModel.primaryMetricUnit)",
+                accent: viewModel.metricInTargetRange
+                    ? Color(red: 0.06, green: 0.62, blue: 0.32)
+                    : Color(red: 0.93, green: 0.40, blue: 0.08)
+            )
+        }
+    }
 
-            HStack(spacing: 10) {
-                MetricCardView(
-                    title: "Tempo Score",
-                    value: "\(Int(viewModel.tempoScore))%",
-                    accent: tempoColor
-                )
-                MetricCardView(
-                    title: "Phase",
-                    value: viewModel.movementPhaseLabel,
-                    accent: Color(red: 0.16, green: 0.44, blue: 0.74)
-                )
-            }
+    private var advancedInsightsCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DisclosureGroup(isExpanded: $showAdvancedInsights) {
+                VStack(spacing: 10) {
+                    Toggle(isOn: $viewModel.metronomeEnabled) {
+                        Label("Tempo Metronome", systemImage: "metronome.fill")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .toggleStyle(.switch)
 
-            HStack(spacing: 10) {
-                MetricCardView(
-                    title: "Eccentric",
-                    value: phaseTempoValueText(viewModel.eccentricTempo),
-                    accent: Color(red: 0.18, green: 0.47, blue: 0.80)
-                )
-                MetricCardView(
-                    title: "Concentric",
-                    value: phaseTempoValueText(viewModel.concentricTempo),
-                    accent: Color(red: 0.10, green: 0.58, blue: 0.35)
-                )
-            }
+                    HStack(spacing: 10) {
+                        MetricCardView(
+                            title: "Symmetry",
+                            value: "\(Int(viewModel.symmetryScore))%",
+                            accent: symmetryColor
+                        )
+                        MetricCardView(
+                            title: "Tempo Score",
+                            value: "\(Int(viewModel.tempoScore))%",
+                            accent: tempoColor
+                        )
+                    }
 
-            HStack(spacing: 10) {
-                MetricCardView(
-                    title: "Comp Alerts",
-                    value: "\(viewModel.compensationAlertsCount)",
-                    accent: viewModel.compensationAlertsCount == 0
-                        ? Color(red: 0.09, green: 0.62, blue: 0.34)
-                        : Color(red: 0.84, green: 0.28, blue: 0.20)
-                )
-                MetricCardView(
-                    title: "Heart Rate",
-                    value: watchHeartRateText,
-                    accent: Color(red: 0.77, green: 0.20, blue: 0.40)
-                )
+                    HStack(spacing: 10) {
+                        MetricCardView(
+                            title: "Phase",
+                            value: viewModel.movementPhaseLabel,
+                            accent: Color(red: 0.16, green: 0.44, blue: 0.74)
+                        )
+                        MetricCardView(
+                            title: "Heart Rate",
+                            value: watchHeartRateText,
+                            accent: Color(red: 0.77, green: 0.20, blue: 0.40)
+                        )
+                    }
+
+                    HStack(spacing: 10) {
+                        MetricCardView(
+                            title: "Eccentric",
+                            value: phaseTempoValueText(viewModel.eccentricTempo),
+                            accent: Color(red: 0.18, green: 0.47, blue: 0.80)
+                        )
+                        MetricCardView(
+                            title: "Concentric",
+                            value: phaseTempoValueText(viewModel.concentricTempo),
+                            accent: Color(red: 0.10, green: 0.58, blue: 0.35)
+                        )
+                    }
+
+                    HStack(spacing: 10) {
+                        MetricCardView(
+                            title: "Comp Alerts",
+                            value: "\(viewModel.compensationAlertsCount)",
+                            accent: viewModel.compensationAlertsCount == 0
+                                ? Color(red: 0.09, green: 0.62, blue: 0.34)
+                                : Color(red: 0.84, green: 0.28, blue: 0.20)
+                        )
+                        MetricCardView(
+                            title: "Watch",
+                            value: viewModel.watchReachable ? "Connected" : "Disconnected",
+                            accent: viewModel.watchReachable
+                                ? Color(red: 0.09, green: 0.62, blue: 0.34)
+                                : Color(red: 0.55, green: 0.58, blue: 0.62)
+                        )
+                    }
+
+                    movementGuideCard
+                }
+                .padding(.top, 6)
+            } label: {
+                Text("Advanced insights")
+                    .font(.subheadline.weight(.semibold))
             }
         }
+        .padding(12)
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.07))
+        )
     }
 
     private var actionCard: some View {
@@ -261,10 +273,6 @@ struct LiveSessionView: View {
                     .padding(.vertical, 8)
                     .background(Color(red: 1.0, green: 0.94, blue: 0.92), in: RoundedRectangle(cornerRadius: 10))
             }
-
-            Label(watchStatusText, systemImage: viewModel.watchReachable ? "applewatch.radiowaves.left.and.right" : "applewatch")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(viewModel.watchReachable ? Color(red: 0.09, green: 0.62, blue: 0.34) : .secondary)
 
             if viewModel.isSessionRunning {
                 Button("End Session") {
@@ -405,25 +413,6 @@ struct LiveSessionView: View {
         return "\(Int(heartRate)) bpm"
     }
 
-    private var watchStatusText: String {
-        if viewModel.watchReachable {
-            if let heartRate = viewModel.watchHeartRate {
-                return "Watch connected • \(Int(heartRate)) bpm"
-            }
-            return "Watch connected"
-        }
-        return "Watch not connected"
-    }
-
-    private func setupBadge(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.14), in: Capsule())
-            .foregroundStyle(color)
-    }
-
     private func phaseTempoValueText(_ value: Double) -> String {
         guard value > 0 else { return "-- s" }
         return String(format: "%.1fs", value)
@@ -438,14 +427,27 @@ struct LiveSessionView: View {
     }
 
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.96, green: 0.98, blue: 1.0),
-                Color(red: 0.88, green: 0.94, blue: 0.98)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        Group {
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.06, green: 0.07, blue: 0.10),
+                        Color(red: 0.09, green: 0.12, blue: 0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.96, green: 0.98, blue: 1.0),
+                        Color(red: 0.88, green: 0.94, blue: 0.98)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
     }
 }
 

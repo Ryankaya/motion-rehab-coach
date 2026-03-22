@@ -2,12 +2,14 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var container: AppContainer
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var selectedExerciseType: ExerciseType = .squat
     @State private var painScore = 2.0
     @State private var rpeGoal = 6.0
     @State private var clinicianSharingMode = false
     @State private var metronomeEnabled = true
+    @State private var showAdvancedSetup = false
 
     init(container: AppContainer) {
         self.container = container
@@ -39,16 +41,9 @@ struct DashboardView: View {
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
-            Text("Choose a guided protocol, calibrate once, then train with live form correction and voice coaching.")
+            Text("Choose a program and start training with live feedback.")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.92))
-
-            HStack(spacing: 10) {
-                pill("Adaptive Targets")
-                pill("Tempo Coaching")
-                pill("Session Reports")
-            }
-            .padding(.top, 4)
         }
         .padding(18)
         .background(
@@ -89,17 +84,8 @@ struct DashboardView: View {
 
     private var readinessCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Pre-Session Setup")
-                    .font(.headline)
-                Spacer()
-                Text(protocolIntensityLabel)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(protocolIntensityColor.opacity(0.20), in: Capsule())
-                    .foregroundStyle(protocolIntensityColor)
-            }
+            Text("Pre-Session Setup")
+                .font(.headline)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
@@ -129,19 +115,27 @@ struct DashboardView: View {
                     .tint(Color(red: 0.05, green: 0.43, blue: 0.62))
             }
 
-            Toggle(isOn: $metronomeEnabled) {
-                Label("Tempo Metronome", systemImage: "metronome")
+            DisclosureGroup(isExpanded: $showAdvancedSetup) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $metronomeEnabled) {
+                        Label("Tempo Metronome", systemImage: "metronome")
+                            .font(.subheadline.weight(.semibold))
+                    }
+
+                    Toggle(isOn: $clinicianSharingMode) {
+                        Label("Clinician Sharing Mode", systemImage: "person.2.badge.gearshape")
+                            .font(.subheadline.weight(.semibold))
+                    }
+
+                    Text(protocolSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 6)
+            } label: {
+                Text("Advanced options")
                     .font(.subheadline.weight(.semibold))
             }
-
-            Toggle(isOn: $clinicianSharingMode) {
-                Label("Clinician Sharing Mode", systemImage: "person.2.badge.gearshape")
-                    .font(.subheadline.weight(.semibold))
-            }
-
-            Text(protocolSummary)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(14)
         .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -177,17 +171,9 @@ struct DashboardView: View {
                         .foregroundStyle(Color(red: 0.03, green: 0.38, blue: 0.54))
                 }
 
-                Text(selectedExerciseType.subtitle)
+                Text("Pain \(Int(painScore))/10 • RPE \(Int(rpeGoal))/10")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                HStack(spacing: 8) {
-                    labelBadge("Pain \(Int(painScore))/10")
-                    labelBadge("RPE \(Int(rpeGoal))/10")
-                    if metronomeEnabled {
-                        labelBadge("Metronome on")
-                    }
-                }
             }
             .padding(14)
             .background(
@@ -234,27 +220,6 @@ struct DashboardView: View {
         }
     }
 
-    private var protocolIntensityLabel: String {
-        if painScore >= 7 || rpeGoal <= 4 {
-            return "Conservative"
-        }
-        if painScore >= 4 || rpeGoal <= 6 {
-            return "Moderate"
-        }
-        return "Standard"
-    }
-
-    private var protocolIntensityColor: Color {
-        switch protocolIntensityLabel {
-        case "Conservative":
-            return Color(red: 0.83, green: 0.30, blue: 0.20)
-        case "Moderate":
-            return Color(red: 0.88, green: 0.58, blue: 0.16)
-        default:
-            return Color(red: 0.09, green: 0.62, blue: 0.34)
-        }
-    }
-
     private var protocolSummary: String {
         let exerciseContext: String
         switch selectedExerciseType {
@@ -268,37 +233,33 @@ struct DashboardView: View {
             "Use clinician mode when you plan to export reports for therapist review."
     }
 
-    private func pill(_ text: String) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.white.opacity(0.22), in: Capsule())
-            .foregroundStyle(.white)
-    }
-
-    private func labelBadge(_ text: String) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(red: 0.94, green: 0.98, blue: 1.0), in: Capsule())
-            .foregroundStyle(Color(red: 0.02, green: 0.32, blue: 0.51))
-    }
-
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.96, green: 0.98, blue: 1.0),
-                Color(red: 0.90, green: 0.95, blue: 0.98)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        Group {
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.07, green: 0.08, blue: 0.11),
+                        Color(red: 0.10, green: 0.13, blue: 0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.96, green: 0.98, blue: 1.0),
+                        Color(red: 0.90, green: 0.95, blue: 0.98)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
     }
 }
 
 struct ProgressDashboardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var historyViewModel: SessionHistoryViewModel
 
     init(container: AppContainer) {
@@ -331,13 +292,26 @@ struct ProgressDashboardView: View {
     }
 
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.96, green: 0.98, blue: 1.0),
-                Color(red: 0.90, green: 0.95, blue: 0.98)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        Group {
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.07, green: 0.08, blue: 0.11),
+                        Color(red: 0.10, green: 0.13, blue: 0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.96, green: 0.98, blue: 1.0),
+                        Color(red: 0.90, green: 0.95, blue: 0.98)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
     }
 }
