@@ -182,6 +182,8 @@ final class TVContinuityCameraService: NSObject {
         switch mode {
         case .fullBody:
             return CGPoint(x: 0.5, y: 0.56)
+        case .upperBody:
+            return CGPoint(x: 0.5, y: 0.36)
         case .feetToHalfBody:
             return CGPoint(x: 0.5, y: 0.80)
         case .kneeFocus:

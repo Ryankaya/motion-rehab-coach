@@ -6,7 +6,7 @@ struct TVCameraPreviewView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> TVPreviewView {
         let view = TVPreviewView()
-        view.previewLayer.videoGravity = .resizeAspect
+        view.previewLayer.videoGravity = .resizeAspectFill
         view.previewLayer.session = session
         view.backgroundColor = .black
         return view

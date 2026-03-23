@@ -8,7 +8,9 @@ struct VisionPoseEstimator: PoseEstimating {
         // Camera pipelines can produce different buffer orientations depending on device and session.
         // Keep the detector robust by trying a compact orientation set and choosing the richest result.
         #if os(tvOS)
-        let orientations: [CGImagePropertyOrientation] = [.upMirrored, .up]
+        // Continuity camera on tvOS is mirrored in most sessions; prioritize one orientation
+        // for lower latency and smoother live tracking on Apple TV.
+        let orientations: [CGImagePropertyOrientation] = [.upMirrored]
         #else
         let orientations: [CGImagePropertyOrientation] = [
             .up, .upMirrored, .leftMirrored, .right, .left, .rightMirrored

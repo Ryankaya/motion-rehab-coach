@@ -2,7 +2,16 @@ import SwiftUI
 
 struct TVCoachHomeView: View {
     @StateObject private var viewModel: TVCoachViewModel
-    @State private var isOptionsPresented = false
+    @State private var isTrainingMenuExpanded = false
+    @FocusState private var focusedLeftControl: LeftRailFocus?
+
+    private enum LeftRailFocus: Hashable {
+        case connectCamera
+        case trainingMenu
+        case training(TVExerciseProgram)
+        case calibrate
+        case session
+    }
 
     init(viewModel: TVCoachViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -25,6 +34,11 @@ struct TVCoachHomeView: View {
         .onDisappear {
             viewModel.onDisappear()
         }
+        .onChange(of: focusedLeftControl) { _, next in
+            if next == nil {
+                isTrainingMenuExpanded = false
+            }
+        }
         .fullScreenCover(isPresented: $viewModel.isDevicePickerPresented) {
             TVContinuityDevicePickerView(
                 onConnected: { device in
@@ -36,13 +50,31 @@ struct TVCoachHomeView: View {
             )
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $isOptionsPresented) {
-            TVCoachOptionsView(viewModel: viewModel)
-        }
     }
 
     private var showsConnectView: Bool {
         viewModel.continuityCameraCount == 0 && viewModel.trackingState == .waitingForCamera
+    }
+
+    private var shouldShowReconnectButton: Bool {
+        viewModel.continuityCameraCount == 0 || viewModel.trackingState == .waitingForCamera
+    }
+
+    private var sessionSummaryText: String {
+        if viewModel.isSessionRunning {
+            return "Session running • \(viewModel.sessionDurationLabel)"
+        }
+        if viewModel.isCalibrating {
+            return "Calibrating… \(Int(viewModel.calibrationProgress * 100))%"
+        }
+        if viewModel.isCalibrationReady {
+            return "Calibrated and ready"
+        }
+        return "Calibration required before starting"
+    }
+
+    private var showRailLabels: Bool {
+        focusedLeftControl != nil
     }
 
     private var connectView: some View {
@@ -89,171 +121,200 @@ struct TVCoachHomeView: View {
 
     private var liveCameraView: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                TVCameraPreviewView(session: viewModel.captureSession)
-                    .scaleEffect(viewModel.previewScale, anchor: .top)
+            let frameHeight = max(1, geometry.size.height - 32)
+            let requiredFillScale = 1 + ((2 * abs(viewModel.previewOffsetY)) / frameHeight)
+            let effectiveScale = max(viewModel.previewScale, min(requiredFillScale + 0.02, 1.40))
+
+            ZStack(alignment: .leading) {
+                ZStack {
+                    ZStack {
+                        TVCameraPreviewView(session: viewModel.captureSession)
+
+                        TVPoseOverlay(
+                            frame: viewModel.latestPoseFrame,
+                            selectedExercise: viewModel.selectedExercise,
+                            framingMode: viewModel.framingMode,
+                            isCalibrating: viewModel.isCalibrating,
+                            isSessionRunning: viewModel.isSessionRunning
+                        )
+                        .allowsHitTesting(false)
+                    }
+                    .scaleEffect(effectiveScale, anchor: .center)
                     .offset(y: viewModel.previewOffsetY)
-                    .animation(.easeInOut(duration: 0.22), value: viewModel.previewScale)
+                    .animation(.easeInOut(duration: 0.22), value: effectiveScale)
                     .animation(.easeInOut(duration: 0.18), value: viewModel.previewOffsetY)
 
-                TVPoseOverlay(
-                    frame: viewModel.latestPoseFrame,
-                    selectedExercise: viewModel.selectedExercise,
-                    framingMode: viewModel.framingMode,
-                    isCalibrating: viewModel.isCalibrating,
-                    isSessionRunning: viewModel.isSessionRunning
+                    VStack(spacing: 0) {
+                        cameraTopMetrics
+                            .padding(.top, 18)
+                        Spacer(minLength: 0)
+                        cameraGuidanceSubtitle
+                            .padding(.horizontal, 22)
+                            .padding(.bottom, 18)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(.white.opacity(0.23), lineWidth: 1.2)
                 )
-                .allowsHitTesting(false)
+                .shadow(color: .black.opacity(0.30), radius: 24, y: 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                VStack(spacing: 14) {
-                    statusBar
-                        .focusSection()
-                    controlsDock(maxWidth: min(geometry.size.width - 42, 1240))
-                        .focusSection()
-                    Spacer(minLength: 0)
-                }
-                .padding(20)
+                leftControlRail
+                    .padding(.leading, 20)
+                    .padding(.vertical, 24)
+                    .zIndex(2)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(.white.opacity(0.23), lineWidth: 1.2)
-            )
-            .shadow(color: .black.opacity(0.30), radius: 24, y: 12)
-            .padding(14)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
         }
     }
 
-    private var statusBar: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(viewModel.selectedExercise.displayName)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.white)
-                Text(viewModel.statusMessage)
-                    .font(.headline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.86))
-                    .lineLimit(2)
-            }
-
-            Spacer()
-
-            statChip("Camera", viewModel.cameraName)
-            statChip("Duration", viewModel.sessionDurationLabel)
-            statChip("Calib", "\(Int(viewModel.calibrationProgress * 100))%")
-
-            Button {
-                viewModel.openDevicePicker()
-            } label: {
-                Label("Reconnect", systemImage: "iphone.gen3.camera")
-                    .font(.headline.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color(red: 0.05, green: 0.42, blue: 0.68), in: Capsule())
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                isOptionsPresented = true
-            } label: {
-                Label("Options", systemImage: "slider.horizontal.3")
-                    .font(.headline.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color(red: 0.24, green: 0.31, blue: 0.41), in: Capsule())
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
+    private var cameraTopMetrics: some View {
+        HStack(spacing: 12) {
+            Text(viewModel.selectedExercise.displayName)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+            dotSeparator
+            metricItem(title: "Moves", value: "\(viewModel.movementCount)")
+            dotSeparator
+            metricItem(title: "Time", value: viewModel.sessionDurationLabel)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.black.opacity(0.43), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(.white.opacity(0.14))
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.62),
+                    Color.black.opacity(0.46)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            ),
+            in: Capsule()
         )
+        .overlay(
+            Capsule().strokeBorder(.white.opacity(0.20))
+        )
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private func controlsDock(maxWidth: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                actionButton(
-                    title: viewModel.calibrationActionTitle,
-                    systemImage: "dot.scope",
-                    fill: Color(red: 0.05, green: 0.58, blue: 0.47)
-                ) {
-                    viewModel.runCalibration()
-                }
+    private var dotSeparator: some View {
+        Circle()
+            .fill(.white.opacity(0.36))
+            .frame(width: 4, height: 4)
+    }
 
-                actionButton(
-                    title: viewModel.sessionActionTitle,
-                    systemImage: viewModel.isSessionRunning ? "stop.fill" : "play.fill",
-                    fill: viewModel.isSessionRunning
-                        ? Color(red: 0.79, green: 0.22, blue: 0.20)
-                        : Color(red: 0.03, green: 0.45, blue: 0.78)
-                ) {
-                    viewModel.toggleSession()
-                }
-            }
+    private func metricItem(title: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.76))
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+        }
+    }
 
+    private var cameraGuidanceSubtitle: some View {
+        VStack(alignment: .center, spacing: 4) {
             Text(viewModel.feedback)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(3)
-                .padding(.top, 2)
-
-            Text("Use Options to change training, body focus, and coaching settings.")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.white.opacity(0.74))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
                 .lineLimit(2)
+                .multilineTextAlignment(.center)
+            Text(sessionSummaryText)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(1)
         }
-        .frame(maxWidth: maxWidth, alignment: .leading)
-        .padding(14)
-        .background(.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(maxWidth: 760)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.black.opacity(0.56), in: Capsule())
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(.white.opacity(0.14))
+            Capsule().strokeBorder(.white.opacity(0.20))
         )
     }
 
-    private func actionButton(
+    private var leftControlRail: some View {
+        VStack(spacing: 14) {
+            if shouldShowReconnectButton {
+                leftRailActionButton(
+                    title: "Connect Camera",
+                    systemImage: "iphone.gen3.camera",
+                    focus: .connectCamera
+                ) {
+                    viewModel.openDevicePicker()
+                    isTrainingMenuExpanded = false
+                }
+            }
+
+            leftRailActionButton(
+                title: "Training",
+                systemImage: "list.bullet.rectangle.portrait",
+                focus: .trainingMenu
+            ) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isTrainingMenuExpanded.toggle()
+                }
+            }
+
+            if isTrainingMenuExpanded {
+                ForEach(TVExerciseProgram.allCases) { exercise in
+                    leftRailActionButton(
+                        title: exercise.displayName,
+                        systemImage: exercise.systemImage,
+                        focus: .training(exercise),
+                        isSelected: viewModel.selectedExercise == exercise
+                    ) {
+                        viewModel.selectExercise(exercise)
+                        isTrainingMenuExpanded = false
+                    }
+                }
+            }
+
+            leftRailActionButton(
+                title: "Run Calibration",
+                systemImage: "dot.scope",
+                focus: .calibrate
+            ) {
+                viewModel.runCalibration()
+                isTrainingMenuExpanded = false
+            }
+
+            Spacer(minLength: 0)
+
+            leftRailActionButton(
+                title: viewModel.sessionActionTitle,
+                systemImage: viewModel.isSessionRunning ? "stop.fill" : "play.fill",
+                focus: .session
+            ) {
+                viewModel.toggleSession()
+                isTrainingMenuExpanded = false
+            }
+        }
+    }
+
+    private func leftRailActionButton(
         title: String,
         systemImage: String,
-        fill: Color,
+        focus: LeftRailFocus,
+        isSelected: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                Text(title)
-                    .lineLimit(1)
-            }
-            .font(.headline.weight(.semibold))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(fill, in: Capsule())
-            .foregroundStyle(.white)
-            .overlay(
-                Capsule().strokeBorder(.white.opacity(0.16))
+            TVRailButtonVisual(
+                title: title,
+                systemImage: systemImage,
+                showLabel: showRailLabels,
+                isSelected: isSelected
             )
         }
         .buttonStyle(.plain)
-    }
-
-    private func statChip(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.74))
-            Text(value)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .focused($focusedLeftControl, equals: focus)
+        .accessibilityLabel(title)
     }
 
     private var background: some View {
@@ -268,161 +329,57 @@ struct TVCoachHomeView: View {
     }
 }
 
-private struct TVCoachOptionsView: View {
-    let viewModel: TVCoachViewModel
-    @Environment(\.dismiss) private var dismiss
+private struct TVRailButtonVisual: View {
+    let title: String
+    let systemImage: String
+    let showLabel: Bool
+    let isSelected: Bool
 
-    @State private var selectedExercise: TVExerciseProgram
-    @State private var selectedFramingMode: TVFramingMode
-    @State private var voiceEnabled: Bool
+    @Environment(\.isFocused) private var isFocused
 
-    init(viewModel: TVCoachViewModel) {
-        self.viewModel = viewModel
-        _selectedExercise = State(initialValue: viewModel.selectedExercise)
-        _selectedFramingMode = State(initialValue: viewModel.framingMode)
-        _voiceEnabled = State(initialValue: viewModel.voiceCoachingEnabled)
-    }
+    private let buttonSize: CGFloat = 68
+    private let cornerRadius: CGFloat = 22
+    private let sharedFill = Color(red: 0.18, green: 0.25, blue: 0.35)
+    private let expandedWidth: CGFloat = 254
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    optionCard("Training") {
-                        Picker("Exercise", selection: $selectedExercise) {
-                            ForEach(TVExerciseProgram.allCases) { exercise in
-                                Label(exercise.displayName, systemImage: exercise.systemImage)
-                                    .tag(exercise)
-                            }
-                        }
-                        .pickerStyle(.menu)
-
-                        Text(selectedExercise.calibrationCue)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                    }
-
-                    optionCard("Body Focus") {
-                        Picker("Camera Focus", selection: $selectedFramingMode) {
-                            ForEach(TVFramingMode.allCases) { mode in
-                                Text(mode.displayName).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.menu)
-
-                        Text(selectedFramingMode.subtitle)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.72))
-
-                        HStack(spacing: 10) {
-                            optionButton("More Feet", systemImage: "arrow.down.to.line") {
-                                viewModel.showMoreFeet()
-                            }
-                            optionButton("More Upper Body", systemImage: "arrow.up.to.line") {
-                                viewModel.showMoreUpperBody()
-                            }
-                            optionButton("Reset", systemImage: "arrow.uturn.backward") {
-                                viewModel.resetFramingAdjustments()
-                            }
-                        }
-                    }
-
-                    optionCard("Coaching") {
-                        Toggle(isOn: $voiceEnabled) {
-                            Label("Voice Direction", systemImage: "speaker.wave.2.fill")
-                        }
-                        .tint(Color(red: 0.04, green: 0.57, blue: 0.72))
-
-                        Text("Voice cues adapt to selected training with stable timing.")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                    }
-
-                    optionCard("Session") {
-                        HStack(spacing: 12) {
-                            Button("Run Calibration") {
-                                viewModel.runCalibration()
-                                dismiss()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color(red: 0.05, green: 0.58, blue: 0.47))
-
-                            Button(viewModel.isSessionRunning ? "End Session" : "Start Session") {
-                                viewModel.toggleSession()
-                                dismiss()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(
-                                viewModel.isSessionRunning
-                                    ? Color(red: 0.79, green: 0.22, blue: 0.20)
-                                    : Color(red: 0.03, green: 0.45, blue: 0.78)
-                            )
-                        }
-
-                        Text("Choose body focus first, then run calibration and start session.")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                    }
-                }
-                .padding(.horizontal, 34)
-                .padding(.vertical, 28)
-            }
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.03, green: 0.08, blue: 0.14),
-                        Color(red: 0.05, green: 0.13, blue: 0.22)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            )
-            .navigationTitle("Session Options")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-            .onChange(of: selectedExercise) { _, newValue in
-                viewModel.selectExercise(newValue)
-            }
-            .onChange(of: selectedFramingMode) { _, newValue in
-                viewModel.selectFramingMode(newValue)
-            }
-            .onChange(of: voiceEnabled) { _, newValue in
-                viewModel.voiceCoachingEnabled = newValue
-            }
-        }
-    }
-
-    private func optionCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.title3.weight(.bold))
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(.white)
-            content()
+                .frame(width: 28, height: 28)
+
+            if showLabel {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.95))
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.black.opacity(0.38), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(width: showLabel ? expandedWidth : buttonSize, height: buttonSize, alignment: .leading)
+        .padding(.horizontal, showLabel ? 16 : 0)
+        .background(sharedFill.opacity(isFocused ? 0.98 : 0.92), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(.white.opacity(0.13), lineWidth: 1.0)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(strokeColor, lineWidth: isFocused ? 2.2 : 1.2)
         )
+        .shadow(color: .black.opacity(isFocused ? 0.42 : 0.28), radius: isFocused ? 14 : 8, y: 5)
+        .scaleEffect(isFocused ? 1.06 : 1.0)
+        .animation(.easeInOut(duration: 0.16), value: isFocused)
+        .animation(.easeInOut(duration: 0.16), value: showLabel)
     }
 
-    private func optionButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.11), in: Capsule())
+    private var strokeColor: Color {
+        if isSelected {
+            return .white.opacity(0.95)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
+        return isFocused ? .white.opacity(0.70) : .white.opacity(0.24)
     }
 }
 
@@ -458,7 +415,7 @@ private struct TVPoseOverlay: View {
 
     var body: some View {
         GeometryReader { geometry in
-            TimelineView(.periodic(from: .now, by: 1.0 / 8.0)) { timeline in
+            TimelineView(.periodic(from: .now, by: 1.0 / 12.0)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let phase = CGFloat((sin(t * 2.0) + 1) * 0.5)
 
@@ -499,6 +456,13 @@ private struct TVPoseOverlay: View {
                 width: size.width * 0.60,
                 height: size.height * 0.78
             )
+        case .upperBody:
+            return CGRect(
+                x: size.width * 0.22,
+                y: size.height * 0.10,
+                width: size.width * 0.56,
+                height: size.height * 0.52
+            )
         case .feetToHalfBody:
             return CGRect(
                 x: size.width * 0.21,
@@ -534,19 +498,28 @@ private struct TVPoseOverlay: View {
         }
 
         var insideCount = 0
+        var trackedCount = 0
+        let tolerantZone = zoneRect.insetBy(dx: -18, dy: -18)
+
         for joint in required {
             guard let posePoint = posePoint(for: joint, in: frame) else { continue }
+            guard posePoint.confidence >= 0.32 else { continue }
+            trackedCount += 1
             let point = point(from: posePoint, in: size)
-            if zoneRect.contains(point), posePoint.confidence >= 0.45 {
+            if tolerantZone.contains(point) {
                 insideCount += 1
             }
         }
 
-        let score = Double(insideCount) / Double(required.count)
+        guard trackedCount > 0 else {
+            return ZoneState(score: 0, color: baseStateColor)
+        }
+
+        let score = Double(insideCount) / Double(trackedCount)
         let color: Color
-        if score >= 0.82 {
+        if score >= 0.58 {
             color = Color(red: 0.12, green: 0.82, blue: 0.35)
-        } else if score >= 0.55 {
+        } else if score >= 0.24 {
             color = Color(red: 0.96, green: 0.66, blue: 0.16)
         } else {
             color = Color(red: 0.91, green: 0.30, blue: 0.24)
@@ -567,6 +540,14 @@ private struct TVPoseOverlay: View {
                 .body(.rightKnee),
                 .body(.leftAnkle),
                 .body(.rightAnkle)
+            ]
+        case .upperBody:
+            return [
+                .custom("neck"),
+                .custom("leftShoulder"),
+                .custom("rightShoulder"),
+                .body(.leftHip),
+                .body(.rightHip)
             ]
         case .feetToHalfBody:
             return [
@@ -742,37 +723,156 @@ private struct TVPoseOverlay: View {
         let norm = CGPoint(x: legVector.x / length, y: legVector.y / length)
         let perp = CGPoint(x: -norm.y, y: norm.x)
 
-        let sideFactor: CGFloat = side == .left ? -1 : 1
-        let heelPoint = CGPoint(
-            x: anklePoint.x + (norm.x * 14) + (perp.x * 5 * sideFactor),
-            y: anklePoint.y + (norm.y * 14) + (perp.y * 5 * sideFactor)
+        let foot = estimatedFootPoints(
+            anklePoint: anklePoint,
+            norm: norm,
+            perp: perp,
+            side: side,
+            legLength: length
         )
-        let toePoint = CGPoint(
-            x: anklePoint.x + (norm.x * 7) - (perp.x * 13 * sideFactor),
-            y: anklePoint.y + (norm.y * 7) - (perp.y * 13 * sideFactor)
-        )
+        let heelPoint = foot.heel
+        let archPoint = foot.arch
+        let ballPoint = foot.ball
+        let toePoint = foot.toe
 
         var path = Path()
         path.move(to: heelPoint)
+        path.addLine(to: archPoint)
+        path.addLine(to: ballPoint)
         path.addLine(to: toePoint)
 
         let confidence = min(knee.confidence, ankle.confidence)
         let insideZone = zoneRect.contains(heelPoint) || zoneRect.contains(toePoint)
+        let color = trackingColor(confidence: confidence, insideZone: insideZone, zoneState: zoneState)
+
+        drawFootSole(
+            heel: heelPoint,
+            arch: archPoint,
+            ball: ballPoint,
+            toe: toePoint,
+            color: color,
+            in: &context
+        )
+
         context.stroke(
             path,
-            with: .color(trackingColor(confidence: confidence, insideZone: insideZone, zoneState: zoneState)),
-            style: StrokeStyle(lineWidth: 4.4, lineCap: .round, lineJoin: .round)
+            with: .color(color),
+            style: StrokeStyle(
+                lineWidth: selectedExercise == .calfRaise ? 5.8 : 4.8,
+                lineCap: .round,
+                lineJoin: .round
+            )
         )
+
+        drawFootJointCircle(center: heelPoint, radius: 6.1, color: color, in: &context)
+        drawFootJointCircle(center: archPoint, radius: 4.9, color: Color(red: 0.24, green: 0.80, blue: 0.90), in: &context)
+        drawFootJointCircle(center: ballPoint, radius: 5.0, color: Color(red: 0.33, green: 0.86, blue: 0.60), in: &context)
+        drawFootJointCircle(center: toePoint, radius: 5.9, color: Color(red: 0.95, green: 0.70, blue: 0.18), in: &context)
+
+        if selectedExercise == .calfRaise {
+            let baselineY = zoneRect.maxY - max(8, zoneRect.height * 0.03)
+            let liftTop = min(heelPoint.y, baselineY)
+
+            var liftPath = Path()
+            liftPath.move(to: CGPoint(x: heelPoint.x, y: baselineY))
+            liftPath.addLine(to: CGPoint(x: heelPoint.x, y: liftTop))
+            context.stroke(
+                liftPath,
+                with: .color(Color(red: 0.18, green: 0.83, blue: 0.46).opacity(0.84)),
+                style: StrokeStyle(lineWidth: 2.6, lineCap: .round, dash: [4, 4])
+            )
+        }
+    }
+
+    private func estimatedFootPoints(
+        anklePoint: CGPoint,
+        norm: CGPoint,
+        perp: CGPoint,
+        side: LegSide,
+        legLength: CGFloat
+    ) -> (heel: CGPoint, arch: CGPoint, ball: CGPoint, toe: CGPoint) {
+        let sideFactor: CGFloat = side == .left ? -1 : 1
+        let footLength = max(18, min(legLength * 0.30, 34))
+        let footWidth = footLength * 0.28
+
+        let heel = CGPoint(
+            x: anklePoint.x + (norm.x * (footLength * 0.40)) + (perp.x * (footWidth * 0.62 * sideFactor)),
+            y: anklePoint.y + (norm.y * (footLength * 0.40)) + (perp.y * (footWidth * 0.62 * sideFactor))
+        )
+        let arch = CGPoint(
+            x: anklePoint.x + (norm.x * (footLength * 0.27)) + (perp.x * (footWidth * 0.20 * sideFactor)),
+            y: anklePoint.y + (norm.y * (footLength * 0.27)) + (perp.y * (footWidth * 0.20 * sideFactor))
+        )
+        let ball = CGPoint(
+            x: anklePoint.x + (norm.x * (footLength * 0.15)) - (perp.x * (footLength * 0.34 * sideFactor)),
+            y: anklePoint.y + (norm.y * (footLength * 0.15)) - (perp.y * (footLength * 0.34 * sideFactor))
+        )
+        let toe = CGPoint(
+            x: anklePoint.x + (norm.x * (footLength * 0.08)) - (perp.x * (footLength * 0.60 * sideFactor)),
+            y: anklePoint.y + (norm.y * (footLength * 0.08)) - (perp.y * (footLength * 0.60 * sideFactor))
+        )
+        return (heel, arch, ball, toe)
+    }
+
+    private func drawFootSole(
+        heel: CGPoint,
+        arch: CGPoint,
+        ball: CGPoint,
+        toe: CGPoint,
+        color: Color,
+        in context: inout GraphicsContext
+    ) {
+        let thickness: CGFloat = 4.2
+        let heelLower = CGPoint(x: heel.x, y: heel.y + thickness)
+        let archLower = CGPoint(x: arch.x, y: arch.y + thickness)
+        let ballLower = CGPoint(x: ball.x, y: ball.y + thickness)
+        let toeLower = CGPoint(x: toe.x, y: toe.y + thickness)
+
+        var sole = Path()
+        sole.move(to: heel)
+        sole.addLine(to: arch)
+        sole.addLine(to: ball)
+        sole.addLine(to: toe)
+        sole.addLine(to: toeLower)
+        sole.addLine(to: ballLower)
+        sole.addLine(to: archLower)
+        sole.addLine(to: heelLower)
+        sole.closeSubpath()
+
+        context.fill(sole, with: .color(color.opacity(0.18)))
+    }
+
+    private func drawFootJointCircle(
+        center: CGPoint,
+        radius: CGFloat,
+        color: Color,
+        in context: inout GraphicsContext
+    ) {
+        let halo = CGRect(
+            x: center.x - (radius + 2),
+            y: center.y - (radius + 2),
+            width: (radius + 2) * 2,
+            height: (radius + 2) * 2
+        )
+        context.fill(Path(ellipseIn: halo), with: .color(color.opacity(0.20)))
+
+        let marker = CGRect(
+            x: center.x - radius,
+            y: center.y - radius,
+            width: radius * 2,
+            height: radius * 2
+        )
+        context.fill(Path(ellipseIn: marker), with: .color(color))
     }
 
     private func drawGuideFigure(in context: inout GraphicsContext, size: CGSize, phase: CGFloat) {
         let centerX = size.width * 0.5
         let motionDepth = guideDepth(for: selectedExercise) * phase
 
-        let shoulderY = size.height * 0.20 + motionDepth * 8
-        let hipY = size.height * 0.43 + motionDepth * 18
-        let kneeY = size.height * 0.66 + motionDepth * 14
-        let ankleY = size.height * 0.86 + max(motionDepth * 18, 0)
+        let shoulderY = size.height * 0.23 + motionDepth * 7
+        let hipY = size.height * 0.46 + motionDepth * 14
+        let kneeY = size.height * 0.63 + motionDepth * 11
+        let ankleY = size.height * 0.79 + max(motionDepth * 13, 0)
 
         let squatShift: CGFloat = selectedExercise == .calfRaise ? 0 : motionDepth * 13
         let lungeSplit: CGFloat = selectedExercise == .lunge ? 18 : 0
@@ -810,10 +910,10 @@ private struct TVPoseOverlay: View {
         skeleton.move(to: rightShoulder)
         skeleton.addLine(to: rightElbow)
 
-        let guideColor = Color(red: 0.24, green: 0.84, blue: 0.61).opacity(0.62)
+        let guideColor = Color(red: 0.24, green: 0.84, blue: 0.61)
         context.stroke(
             skeleton,
-            with: .color(guideColor),
+            with: .color(guideColor.opacity(0.62)),
             style: StrokeStyle(lineWidth: 4.2, lineCap: .round, lineJoin: .round)
         )
 
@@ -824,23 +924,50 @@ private struct TVPoseOverlay: View {
         kneesPath.addLine(to: rightKnee)
         context.stroke(
             kneesPath,
-            with: .color(guideColor.opacity(0.55)),
+            with: .color(guideColor.opacity(0.48)),
             style: StrokeStyle(lineWidth: 2.2, lineCap: .round, dash: [6, 5])
         )
 
-        var feetPath = Path()
-        feetPath.move(to: CGPoint(x: leftAnkle.x - 14, y: leftAnkle.y + 8))
-        feetPath.addLine(to: CGPoint(x: leftAnkle.x + 10, y: leftAnkle.y + 8))
-        feetPath.move(to: CGPoint(x: rightAnkle.x - 10, y: rightAnkle.y + 8))
-        feetPath.addLine(to: CGPoint(x: rightAnkle.x + 14, y: rightAnkle.y + 8))
-        context.stroke(
-            feetPath,
-            with: .color(guideColor.opacity(0.76)),
-            style: StrokeStyle(lineWidth: 3.4, lineCap: .round)
-        )
+        drawGuideFoot(knee: leftKnee, ankle: leftAnkle, side: .left, color: guideColor, in: &context)
+        drawGuideFoot(knee: rightKnee, ankle: rightAnkle, side: .right, color: guideColor, in: &context)
 
         let headRect = CGRect(x: centerX - 10, y: shoulderY - 24, width: 20, height: 20)
-        context.fill(Path(ellipseIn: headRect), with: .color(guideColor))
+        context.fill(Path(ellipseIn: headRect), with: .color(guideColor.opacity(0.62)))
+    }
+
+    private func drawGuideFoot(
+        knee: CGPoint,
+        ankle: CGPoint,
+        side: LegSide,
+        color: Color,
+        in context: inout GraphicsContext
+    ) {
+        let legVector = CGPoint(x: ankle.x - knee.x, y: ankle.y - knee.y)
+        let length = max(0.001, hypot(legVector.x, legVector.y))
+        let norm = CGPoint(x: legVector.x / length, y: legVector.y / length)
+        let perp = CGPoint(x: -norm.y, y: norm.x)
+        let foot = estimatedFootPoints(
+            anklePoint: ankle,
+            norm: norm,
+            perp: perp,
+            side: side,
+            legLength: length
+        )
+
+        var path = Path()
+        path.move(to: foot.heel)
+        path.addLine(to: foot.arch)
+        path.addLine(to: foot.ball)
+        path.addLine(to: foot.toe)
+        context.stroke(
+            path,
+            with: .color(color.opacity(0.70)),
+            style: StrokeStyle(lineWidth: 3.8, lineCap: .round, lineJoin: .round)
+        )
+
+        drawFootJointCircle(center: foot.heel, radius: 4.4, color: color.opacity(0.72), in: &context)
+        drawFootJointCircle(center: foot.ball, radius: 3.7, color: color.opacity(0.72), in: &context)
+        drawFootJointCircle(center: foot.toe, radius: 4.1, color: color.opacity(0.72), in: &context)
     }
 
     private func guideDepth(for exercise: TVExerciseProgram) -> CGFloat {
@@ -859,11 +986,11 @@ private struct TVPoseOverlay: View {
     }
 
     private func trackingColor(confidence: Double, insideZone: Bool, zoneState: ZoneState) -> Color {
-        if confidence >= 0.68 && insideZone {
-            return zoneState.color
+        if confidence >= 0.54 && (insideZone || zoneState.score >= 0.50) {
+            return Color(red: 0.16, green: 0.86, blue: 0.42)
         }
-        if confidence >= 0.45 {
-            return Color(red: 0.96, green: 0.68, blue: 0.18)
+        if confidence >= 0.34 {
+            return Color(red: 0.93, green: 0.78, blue: 0.20)
         }
         return Color(red: 0.90, green: 0.27, blue: 0.23)
     }

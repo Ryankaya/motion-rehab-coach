@@ -97,4 +97,20 @@ enum TVExerciseProgram: String, CaseIterable, Identifiable {
             ]
         }
     }
+
+    var autoFramingMode: TVFramingMode {
+        let normalized = displayName.lowercased()
+        if normalized.contains("shoulder") || normalized.contains("upper") || normalized.contains("arm") {
+            return .upperBody
+        }
+
+        switch self {
+        case .calfRaise:
+            return .heelFocus
+        case .lunge:
+            return .kneeFocus
+        case .squat, .sitToStand, .miniSquat:
+            return .feetToHalfBody
+        }
+    }
 }

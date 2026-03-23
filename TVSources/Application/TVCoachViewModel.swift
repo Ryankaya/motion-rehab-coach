@@ -37,6 +37,7 @@ final class TVCoachViewModel: ObservableObject {
     @Published private(set) var calibrationProgress = 0.0
     @Published private(set) var isSessionRunning = false
     @Published private(set) var sessionDurationSeconds = 0
+    @Published private(set) var movementCount = 0
 
     @Published var isDevicePickerPresented = false
 
@@ -60,7 +61,7 @@ final class TVCoachViewModel: ObservableObject {
     private var missedPoseFrameCount = 0
     private var previousFrameDate: Date?
     private var lastAnalysisTimestamp: CFTimeInterval = 0
-    private let analysisInterval: CFTimeInterval = 1.0 / 10.0
+    private let analysisInterval: CFTimeInterval = 1.0 / 15.0
     private var pendingCameraID: String?
     private var reconnectRetryCount = 0
     private let maxReconnectRetries = 12
@@ -71,6 +72,13 @@ final class TVCoachViewModel: ObservableObject {
     private var sessionTimer: Timer?
     private var calibrationTimer: Timer?
     private var guidanceCueIndex = 0
+    private var movementPhase: MovementPhase = .waitingForDown
+    private var baselineAnkleY: Double?
+
+    private enum MovementPhase {
+        case waitingForDown
+        case waitingForUp
+    }
 
     init(
         cameraService: TVContinuityCameraService,
@@ -150,13 +158,25 @@ final class TVCoachViewModel: ObservableObject {
         guard selectedExercise != exercise else { return }
         selectedExercise = exercise
         isCalibrationReady = false
+        resetMovementTracking(resetCount: true)
+        applyAutoFraming(for: exercise)
 
         if isSessionRunning {
             stopSession()
         }
 
-        feedback = "Selected \(exercise.displayName). Run calibration for best guidance."
-        voiceCoach.speak("Selected \(exercise.displayName). \(exercise.calibrationCue)", force: true)
+        let framingHint: String
+        switch framingMode {
+        case .heelFocus:
+            framingHint = "Camera now follows heel and ankle area."
+        case .upperBody:
+            framingHint = "Camera now follows upper body."
+        default:
+            framingHint = "Camera framing updated for this training."
+        }
+
+        feedback = "Selected \(exercise.displayName). \(framingHint)"
+        voiceCoach.speak("Selected \(exercise.displayName). \(framingHint)", force: true)
     }
 
     func toggleLowerBodyFocus() {
@@ -193,7 +213,7 @@ final class TVCoachViewModel: ObservableObject {
 
     func selectFramingMode(_ mode: TVFramingMode) {
         framingMode = mode
-        lowerBodyFocusEnabled = mode != .fullBody
+        lowerBodyFocusEnabled = mode != .fullBody && mode != .upperBody
         applyFramingMode(resetNudge: true)
         cameraService.applyFocusPreset(mode)
         feedback = "\(mode.displayName) framing selected."
@@ -347,6 +367,7 @@ final class TVCoachViewModel: ObservableObject {
         invalidateSessionTimer()
         isSessionRunning = true
         sessionDurationSeconds = 0
+        resetMovementTracking(resetCount: true)
         trackingState = .trackingPose
         statusMessage = "Session active: \(selectedExercise.displayName)"
         guidanceCueIndex = 0
@@ -385,6 +406,7 @@ final class TVCoachViewModel: ObservableObject {
             : "Session ended. Reconnect camera to continue."
         feedback = "Session stopped"
         voiceCoach.reset()
+        resetMovementTracking(resetCount: false)
     }
 
     private func finishCalibration() {
@@ -401,21 +423,32 @@ final class TVCoachViewModel: ObservableObject {
         case .fullBody:
             previewScale = 1.0
             framingBaseOffsetY = 0
+        case .upperBody:
+            previewScale = 1.02
+            framingBaseOffsetY = 56
         case .feetToHalfBody:
-            previewScale = 1.03
-            framingBaseOffsetY = -132
+            previewScale = 1.01
+            framingBaseOffsetY = -78
         case .kneeFocus:
-            previewScale = 1.05
-            framingBaseOffsetY = -112
-        case .heelFocus:
             previewScale = 1.03
-            framingBaseOffsetY = -178
+            framingBaseOffsetY = -62
+        case .heelFocus:
+            previewScale = 1.02
+            framingBaseOffsetY = -112
         }
 
         if resetNudge {
             framingNudgeY = 0
         }
         previewOffsetY = framingBaseOffsetY + framingNudgeY
+    }
+
+    private func applyAutoFraming(for exercise: TVExerciseProgram) {
+        let mode = exercise.autoFramingMode
+        framingMode = mode
+        lowerBodyFocusEnabled = mode != .upperBody && mode != .fullBody
+        applyFramingMode(resetNudge: true)
+        cameraService.applyFocusPreset(mode)
     }
 
     private func invalidateTimers() {
@@ -474,6 +507,7 @@ final class TVCoachViewModel: ObservableObject {
                 self.visibleJointCount = jointCount
                 self.postureScore = score
                 self.feedback = nextFeedback
+                self.updateMovementCount(from: pose)
             }
         } catch {
             DispatchQueue.main.async { [weak self] in
@@ -549,5 +583,154 @@ final class TVCoachViewModel: ObservableObject {
         }
 
         previousFrameDate = now
+    }
+
+    private func resetMovementTracking(resetCount: Bool) {
+        if resetCount {
+            movementCount = 0
+        }
+        movementPhase = .waitingForDown
+        baselineAnkleY = nil
+    }
+
+    private func updateMovementCount(from frame: PoseFrame) {
+        guard isSessionRunning else { return }
+
+        switch selectedExercise {
+        case .calfRaise:
+            updateCalfRaiseMovement(from: frame)
+        case .lunge:
+            updateLungeMovement(from: frame)
+        case .squat, .sitToStand, .miniSquat:
+            updateBilateralMovement(from: frame)
+        }
+    }
+
+    private func updateBilateralMovement(from frame: PoseFrame) {
+        guard let kneeAngle = averageKneeAngle(from: frame) else { return }
+        let downThreshold = bilateralDownThreshold(for: selectedExercise)
+        let upThreshold = 157.0
+
+        switch movementPhase {
+        case .waitingForDown:
+            if kneeAngle < downThreshold {
+                movementPhase = .waitingForUp
+            }
+        case .waitingForUp:
+            if kneeAngle > upThreshold {
+                movementCount += 1
+                movementPhase = .waitingForDown
+            }
+        }
+    }
+
+    private func updateLungeMovement(from frame: PoseFrame) {
+        guard
+            let left = kneeAngle(hip: .leftHip, knee: .leftKnee, ankle: .leftAnkle, frame: frame),
+            let right = kneeAngle(hip: .rightHip, knee: .rightKnee, ankle: .rightAnkle, frame: frame)
+        else {
+            return
+        }
+
+        let frontKnee = min(left, right)
+        let downThreshold = 108.0
+        let upThreshold = 154.0
+
+        switch movementPhase {
+        case .waitingForDown:
+            if frontKnee < downThreshold {
+                movementPhase = .waitingForUp
+            }
+        case .waitingForUp:
+            if frontKnee > upThreshold {
+                movementCount += 1
+                movementPhase = .waitingForDown
+            }
+        }
+    }
+
+    private func updateCalfRaiseMovement(from frame: PoseFrame) {
+        guard
+            let leftAnkle = frame.point(for: .leftAnkle)?.y,
+            let rightAnkle = frame.point(for: .rightAnkle)?.y,
+            let kneeAngle = averageKneeAngle(from: frame)
+        else {
+            return
+        }
+
+        let averageAnkleY = (leftAnkle + rightAnkle) / 2
+        if baselineAnkleY == nil {
+            baselineAnkleY = averageAnkleY
+        }
+        guard var baseline = baselineAnkleY else { return }
+
+        if movementPhase == .waitingForDown {
+            baseline = (baseline * 0.93) + (averageAnkleY * 0.07)
+            baselineAnkleY = baseline
+        }
+
+        let rise = averageAnkleY - baseline
+
+        switch movementPhase {
+        case .waitingForDown:
+            if kneeAngle > 146, rise > 0.020 {
+                movementPhase = .waitingForUp
+            }
+        case .waitingForUp:
+            if rise < 0.009 {
+                movementCount += 1
+                movementPhase = .waitingForDown
+            }
+        }
+    }
+
+    private func bilateralDownThreshold(for exercise: TVExerciseProgram) -> Double {
+        switch exercise {
+        case .miniSquat:
+            return 126
+        case .sitToStand:
+            return 114
+        case .squat:
+            return 104
+        case .lunge, .calfRaise:
+            return 110
+        }
+    }
+
+    private func averageKneeAngle(from frame: PoseFrame) -> Double? {
+        let angles = [
+            kneeAngle(hip: .leftHip, knee: .leftKnee, ankle: .leftAnkle, frame: frame),
+            kneeAngle(hip: .rightHip, knee: .rightKnee, ankle: .rightAnkle, frame: frame)
+        ].compactMap { $0 }
+
+        guard !angles.isEmpty else { return nil }
+        return angles.reduce(0, +) / Double(angles.count)
+    }
+
+    private func kneeAngle(
+        hip: BodyJoint,
+        knee: BodyJoint,
+        ankle: BodyJoint,
+        frame: PoseFrame
+    ) -> Double? {
+        guard
+            let hipPoint = frame.point(for: hip),
+            let kneePoint = frame.point(for: knee),
+            let anklePoint = frame.point(for: ankle)
+        else {
+            return nil
+        }
+
+        let upperX = hipPoint.x - kneePoint.x
+        let upperY = hipPoint.y - kneePoint.y
+        let lowerX = anklePoint.x - kneePoint.x
+        let lowerY = anklePoint.y - kneePoint.y
+        let dot = (upperX * lowerX) + (upperY * lowerY)
+        let magnitude = sqrt((upperX * upperX) + (upperY * upperY)) *
+            sqrt((lowerX * lowerX) + (lowerY * lowerY))
+        guard magnitude > 0 else { return nil }
+
+        let cosine = max(-1, min(1, dot / magnitude))
+        return acos(cosine) * 180 / Double.pi
     }
 }

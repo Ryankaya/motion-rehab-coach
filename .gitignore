@@ -2,6 +2,7 @@
 build/
 DerivedData/
 .derived-data/
+.derived-data-*/
 *.swp
 *.xcuserstate
 xcuserdata/
