@@ -67,9 +67,9 @@ enum TVExerciseProgram: String, CaseIterable, Identifiable {
         switch self {
         case .squat:
             return [
-                "Keep knees over ankles.",
+                "Knees open slightly outward as you descend.",
                 "Sit hips back, then drive up through heels.",
-                "Stay centered in the lower-body zone."
+                "Keep thigh lines open and stay centered in zone."
             ]
         case .sitToStand:
             return [
@@ -111,6 +111,21 @@ enum TVExerciseProgram: String, CaseIterable, Identifiable {
             return .kneeFocus
         case .squat, .sitToStand, .miniSquat:
             return .feetToHalfBody
+        }
+    }
+
+    var prepGuideHint: String {
+        switch self {
+        case .squat:
+            return "Sit hips back, then drive up through heels."
+        case .sitToStand:
+            return "Lower with control and stand up tall."
+        case .lunge:
+            return "Drop straight down and keep front knee stable."
+        case .miniSquat:
+            return "Use a short range and smooth tempo."
+        case .calfRaise:
+            return "Lift heels up, hold briefly, then lower slowly."
         }
     }
 }

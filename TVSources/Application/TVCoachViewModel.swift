@@ -38,6 +38,10 @@ final class TVCoachViewModel: ObservableObject {
     @Published private(set) var isSessionRunning = false
     @Published private(set) var sessionDurationSeconds = 0
     @Published private(set) var movementCount = 0
+    @Published private(set) var isPrepGuideActive = false
+    @Published private(set) var prepGuideCountdown = 0
+    @Published private(set) var prepGuideProgress = 0.0
+    @Published private(set) var smallSpaceAssistEnabled = false
 
     @Published var isDevicePickerPresented = false
 
@@ -51,7 +55,10 @@ final class TVCoachViewModel: ObservableObject {
         isCalibrationReady ? "Recalibrate" : "Run Calibration"
     }
     var sessionActionTitle: String {
-        isSessionRunning ? "End Session" : "Start Session"
+        if isPrepGuideActive {
+            return "Cancel Prep"
+        }
+        return isSessionRunning ? "End Session" : "Start Session"
     }
 
     private let cameraService: TVContinuityCameraService
@@ -71,13 +78,25 @@ final class TVCoachViewModel: ObservableObject {
 
     private var sessionTimer: Timer?
     private var calibrationTimer: Timer?
+    private var prepGuideTimer: Timer?
     private var guidanceCueIndex = 0
     private var movementPhase: MovementPhase = .waitingForDown
     private var baselineAnkleY: Double?
+    private var squatBaselineKneeOutward: Double?
+    private var hasAppliedAutoWideAssist = false
+    private var lastCorrectiveVoiceCueAt = Date.distantPast
 
     private enum MovementPhase {
         case waitingForDown
         case waitingForUp
+    }
+
+    private struct KneeTrackingAssessment {
+        let averageOutward: Double
+        let leftOutward: Double
+        let rightOutward: Double
+        let asymmetry: Double
+        let inwardCollapseDetected: Bool
     }
 
     init(
@@ -159,6 +178,7 @@ final class TVCoachViewModel: ObservableObject {
         selectedExercise = exercise
         isCalibrationReady = false
         resetMovementTracking(resetCount: true)
+        cancelPrepGuide(silent: true)
         applyAutoFraming(for: exercise)
 
         if isSessionRunning {
@@ -194,15 +214,26 @@ final class TVCoachViewModel: ObservableObject {
     }
 
     func showMoreFeet() {
-        previewOffsetY = max(previewOffsetY - 18, -340)
+        previewOffsetY = max(previewOffsetY - 14, -220)
         framingNudgeY = previewOffsetY - framingBaseOffsetY
         feedback = "Framing adjusted for more feet visibility."
     }
 
     func showMoreUpperBody() {
-        previewOffsetY = min(previewOffsetY + 18, 180)
+        previewOffsetY = min(previewOffsetY + 14, 180)
         framingNudgeY = previewOffsetY - framingBaseOffsetY
         feedback = "Framing adjusted for more upper body visibility."
+    }
+
+    func enableSmallSpaceAssist() {
+        smallSpaceAssistEnabled = true
+        hasAppliedAutoWideAssist = true
+        previewScale = min(previewScale, 0.95)
+        previewOffsetY = max(previewOffsetY, -42)
+        framingNudgeY = previewOffsetY - framingBaseOffsetY
+        cameraService.enableWideFieldOfView()
+        feedback = "Small-space assist enabled. Wider framing active."
+        voiceCoach.speak("Small-space assist enabled. Wider framing active.", force: true)
     }
 
     func resetFramingAdjustments() {
@@ -222,6 +253,7 @@ final class TVCoachViewModel: ObservableObject {
 
     func runCalibration() {
         guard !isCalibrating else { return }
+        cancelPrepGuide(silent: true)
 
         reconnectPreferredCamera(resetRetry: true)
         guard continuityCameraCount > 0 else {
@@ -239,21 +271,30 @@ final class TVCoachViewModel: ObservableObject {
         isCalibrating = true
         isCalibrationReady = false
         calibrationProgress = 0
-        statusMessage = "Calibrating \(selectedExercise.displayName)..."
-        feedback = selectedExercise.calibrationCue
+        statusMessage = "Calibrating \(selectedExercise.displayName) (about 8 seconds)..."
+        feedback = "Hold steady inside the guide lanes."
         guidanceCueIndex = 0
-        voiceCoach.speak("Calibration started. \(selectedExercise.calibrationCue)", force: true)
+        voiceCoach.speak("Calibration started. Hold your stance in the guide lanes for about eight seconds.", force: true)
 
+        let totalTicks = 80
+        var tick = 0
         calibrationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
             guard let self else {
                 timer.invalidate()
                 return
             }
 
-            let nextProgress = min(self.calibrationProgress + 0.04, 1.0)
+            tick += 1
+            let nextProgress = min(Double(tick) / Double(totalTicks), 1.0)
             self.calibrationProgress = nextProgress
 
-            if nextProgress >= 1 {
+            if tick == 40 {
+                self.feedback = "Great. Keep ankles, knees, and hips in-lane."
+            } else if tick == 65 {
+                self.feedback = "Almost done. Hold steady."
+            }
+
+            if tick >= totalTicks || nextProgress >= 1 {
                 timer.invalidate()
                 self.calibrationTimer = nil
                 self.finishCalibration()
@@ -262,6 +303,10 @@ final class TVCoachViewModel: ObservableObject {
     }
 
     func toggleSession() {
+        if isPrepGuideActive {
+            cancelPrepGuide()
+            return
+        }
         isSessionRunning ? stopSession() : startSession()
     }
 
@@ -348,7 +393,7 @@ final class TVCoachViewModel: ObservableObject {
         missedPoseFrameCount = 0
     }
 
-    private func startSession() {
+    private func startSession(skippingPrepGuide: Bool = false) {
         reconnectPreferredCamera(resetRetry: true)
         guard continuityCameraCount > 0 else {
             trackingState = .waitingForCamera
@@ -361,6 +406,11 @@ final class TVCoachViewModel: ObservableObject {
             feedback = "Calibration required before session."
             voiceCoach.speak("Run calibration before starting session.", force: true)
             runCalibration()
+            return
+        }
+
+        guard skippingPrepGuide else {
+            startPrepGuide()
             return
         }
 
@@ -393,6 +443,7 @@ final class TVCoachViewModel: ObservableObject {
     }
 
     private func stopSession() {
+        cancelPrepGuide(silent: true)
         invalidateSessionTimer()
         if isCalibrating {
             invalidateCalibrationTimer()
@@ -421,26 +472,31 @@ final class TVCoachViewModel: ObservableObject {
     private func applyFramingMode(resetNudge: Bool) {
         switch framingMode {
         case .fullBody:
-            previewScale = 1.0
+            previewScale = 0.98
             framingBaseOffsetY = 0
         case .upperBody:
-            previewScale = 1.02
-            framingBaseOffsetY = 56
+            previewScale = 0.99
+            framingBaseOffsetY = 26
         case .feetToHalfBody:
-            previewScale = 1.01
-            framingBaseOffsetY = -78
+            previewScale = 0.97
+            framingBaseOffsetY = -42
         case .kneeFocus:
-            previewScale = 1.03
-            framingBaseOffsetY = -62
+            previewScale = 0.98
+            framingBaseOffsetY = -30
         case .heelFocus:
-            previewScale = 1.02
-            framingBaseOffsetY = -112
+            previewScale = 0.97
+            framingBaseOffsetY = -56
         }
 
         if resetNudge {
             framingNudgeY = 0
         }
         previewOffsetY = framingBaseOffsetY + framingNudgeY
+        if smallSpaceAssistEnabled {
+            previewScale = min(previewScale, 0.95)
+            previewOffsetY = max(previewOffsetY, -42)
+            framingNudgeY = previewOffsetY - framingBaseOffsetY
+        }
     }
 
     private func applyAutoFraming(for exercise: TVExerciseProgram) {
@@ -454,6 +510,7 @@ final class TVCoachViewModel: ObservableObject {
     private func invalidateTimers() {
         invalidateSessionTimer()
         invalidateCalibrationTimer()
+        invalidatePrepGuideTimer()
     }
 
     private func invalidateSessionTimer() {
@@ -464,6 +521,11 @@ final class TVCoachViewModel: ObservableObject {
     private func invalidateCalibrationTimer() {
         calibrationTimer?.invalidate()
         calibrationTimer = nil
+    }
+
+    private func invalidatePrepGuideTimer() {
+        prepGuideTimer?.invalidate()
+        prepGuideTimer = nil
     }
 
     private func refreshCameraTelemetry() {
@@ -490,15 +552,21 @@ final class TVCoachViewModel: ObservableObject {
                         self.postureScore = 0
                         self.latestPoseFrame = nil
                         self.feedback = "No pose detected. Step back so hips, knees, and ankles are visible."
+                        if self.missedPoseFrameCount >= 20, !self.hasAppliedAutoWideAssist {
+                            self.applyAutoWideAssist()
+                        }
                     }
                 }
                 return
             }
 
             missedPoseFrameCount = 0
+            if isSessionRunning || isCalibrating {
+                updateDynamicBaselines(from: pose)
+            }
             let score = postureScore(for: pose)
             let jointCount = pose.joints.count
-            let nextFeedback = makeFeedback(for: score, jointCount: jointCount)
+            let nextFeedback = makeFeedback(for: score, jointCount: jointCount, frame: pose)
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -536,7 +604,7 @@ final class TVCoachViewModel: ObservableObject {
             let leftAnkle = frame.point(for: .leftAnkle)
         {
             checks += 1
-            if abs(leftKnee.x - leftAnkle.x) < 0.20 {
+            if abs(leftKnee.x - leftAnkle.x) < kneeOverAnkleTolerance(for: selectedExercise) {
                 successfulChecks += 1
             }
         }
@@ -546,7 +614,22 @@ final class TVCoachViewModel: ObservableObject {
             let rightAnkle = frame.point(for: .rightAnkle)
         {
             checks += 1
-            if abs(rightKnee.x - rightAnkle.x) < 0.20 {
+            if abs(rightKnee.x - rightAnkle.x) < kneeOverAnkleTolerance(for: selectedExercise) {
+                successfulChecks += 1
+            }
+        }
+
+        if
+            selectedExercise == .squat || selectedExercise == .sitToStand || selectedExercise == .miniSquat,
+            let kneeTracking = kneeTrackingAssessment(from: frame),
+            let averageKnee = averageKneeAngle(from: frame)
+        {
+            checks += 2
+            let expectedOutward = expectedOutwardKneeTravel(for: averageKnee)
+            if kneeTracking.averageOutward >= expectedOutward - 0.025 {
+                successfulChecks += 1
+            }
+            if !kneeTracking.inwardCollapseDetected {
                 successfulChecks += 1
             }
         }
@@ -555,10 +638,35 @@ final class TVCoachViewModel: ObservableObject {
         return (Double(successfulChecks) / Double(checks)) * 100
     }
 
-    private func makeFeedback(for score: Double, jointCount: Int) -> String {
+    private func makeFeedback(for score: Double, jointCount: Int, frame: PoseFrame) -> String {
         if jointCount < BodyJoint.allCases.count {
             return "Need all lower-body joints visible (\(jointCount)/\(BodyJoint.allCases.count))."
         }
+
+        if selectedExercise == .squat || selectedExercise == .sitToStand || selectedExercise == .miniSquat {
+            if
+                let kneeTracking = kneeTrackingAssessment(from: frame),
+                let averageKnee = averageKneeAngle(from: frame)
+            {
+                let expectedOutward = expectedOutwardKneeTravel(for: averageKnee)
+                let nearBottom = averageKnee < bilateralDownThreshold(for: selectedExercise) + 16
+                if nearBottom && kneeTracking.inwardCollapseDetected {
+                    maybeSpeakCorrectiveCue("Drive knees slightly outward on the way down.")
+                    return "Drive knees outward as you lower. Keep thigh line open."
+                }
+                if nearBottom && kneeTracking.averageOutward < expectedOutward - 0.03 {
+                    maybeSpeakCorrectiveCue("Open knees a little more as you descend.")
+                    return "Open knees slightly outward on descent."
+                }
+                if kneeTracking.asymmetry > 0.12 {
+                    return "Balance both sides. Match left/right knee travel."
+                }
+                if nearBottom && kneeTracking.averageOutward >= expectedOutward {
+                    return "Great knee tracking. Keep knees out and drive up."
+                }
+            }
+        }
+
         if score >= 80 {
             return "Great posture. Keep moving with control."
         }
@@ -591,6 +699,61 @@ final class TVCoachViewModel: ObservableObject {
         }
         movementPhase = .waitingForDown
         baselineAnkleY = nil
+        squatBaselineKneeOutward = nil
+        hasAppliedAutoWideAssist = false
+    }
+
+    private func startPrepGuide() {
+        guard !isPrepGuideActive else { return }
+
+        invalidatePrepGuideTimer()
+        isPrepGuideActive = true
+        prepGuideCountdown = 3
+        prepGuideProgress = 0
+        feedback = "Follow the guide animation. Session starts in 3..."
+        statusMessage = "Get ready: \(selectedExercise.displayName)"
+        voiceCoach.speak("Get ready. Follow the guide. Three. Two. One.", force: true)
+
+        let totalTicks = 30
+        var tick = 0
+        prepGuideTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            tick += 1
+            let progress = min(Double(tick) / Double(totalTicks), 1.0)
+            self.prepGuideProgress = progress
+
+            let remaining = max(1, Int(ceil((Double(totalTicks - tick)) / 10.0)))
+            self.prepGuideCountdown = remaining
+
+            if tick >= totalTicks {
+                timer.invalidate()
+                self.prepGuideTimer = nil
+                self.isPrepGuideActive = false
+                self.prepGuideCountdown = 0
+                self.prepGuideProgress = 1
+                self.feedback = "Follow the guidance. Session started."
+                self.startSession(skippingPrepGuide: true)
+            }
+        }
+    }
+
+    private func cancelPrepGuide(silent: Bool = false) {
+        guard isPrepGuideActive || prepGuideTimer != nil else { return }
+
+        invalidatePrepGuideTimer()
+        isPrepGuideActive = false
+        prepGuideCountdown = 0
+        prepGuideProgress = 0
+
+        if !silent {
+            feedback = "Prep canceled."
+            statusMessage = "Session prep canceled."
+            voiceCoach.speak("Preparation canceled.", force: true)
+        }
     }
 
     private func updateMovementCount(from frame: PoseFrame) {
@@ -695,6 +858,106 @@ final class TVCoachViewModel: ObservableObject {
         case .lunge, .calfRaise:
             return 110
         }
+    }
+
+    private func kneeOverAnkleTolerance(for exercise: TVExerciseProgram) -> Double {
+        switch exercise {
+        case .lunge:
+            return 0.26
+        case .squat, .sitToStand:
+            return 0.23
+        case .miniSquat:
+            return 0.21
+        case .calfRaise:
+            return 0.20
+        }
+    }
+
+    private func updateDynamicBaselines(from frame: PoseFrame) {
+        guard
+            selectedExercise == .squat || selectedExercise == .sitToStand || selectedExercise == .miniSquat,
+            let kneeTracking = kneeTrackingAssessment(from: frame),
+            let averageKnee = averageKneeAngle(from: frame)
+        else {
+            return
+        }
+
+        // Update neutral knee width baseline only near standing position.
+        guard averageKnee > 150 else { return }
+        if let baseline = squatBaselineKneeOutward {
+            squatBaselineKneeOutward = (baseline * 0.92) + (kneeTracking.averageOutward * 0.08)
+        } else {
+            squatBaselineKneeOutward = kneeTracking.averageOutward
+        }
+    }
+
+    private func expectedOutwardKneeTravel(for averageKneeAngle: Double) -> Double {
+        let standingAngle = 160.0
+        let depthTarget = bilateralDownThreshold(for: selectedExercise)
+        let rawDepth = (standingAngle - averageKneeAngle) / max(1, standingAngle - depthTarget)
+        let depth = max(0, min(1, rawDepth))
+
+        let base = squatBaselineKneeOutward ?? 0.0
+        let outwardGain: Double
+        switch selectedExercise {
+        case .squat:
+            outwardGain = 0.10
+        case .sitToStand:
+            outwardGain = 0.08
+        case .miniSquat:
+            outwardGain = 0.06
+        case .lunge, .calfRaise:
+            outwardGain = 0.0
+        }
+        return base + (depth * outwardGain)
+    }
+
+    private func kneeTrackingAssessment(from frame: PoseFrame) -> KneeTrackingAssessment? {
+        guard
+            let leftHip = frame.point(for: .leftHip),
+            let rightHip = frame.point(for: .rightHip),
+            let leftKnee = frame.point(for: .leftKnee),
+            let rightKnee = frame.point(for: .rightKnee)
+        else {
+            return nil
+        }
+
+        let hipWidth = abs(rightHip.x - leftHip.x)
+        guard hipWidth >= 0.05 else { return nil }
+
+        let midX = (leftHip.x + rightHip.x) * 0.5
+        let leftOutward = (abs(leftKnee.x - midX) - abs(leftHip.x - midX)) / hipWidth
+        let rightOutward = (abs(rightKnee.x - midX) - abs(rightHip.x - midX)) / hipWidth
+        let averageOutward = (leftOutward + rightOutward) * 0.5
+        let asymmetry = abs(leftOutward - rightOutward)
+        let inwardCollapseDetected = leftOutward < -0.03 || rightOutward < -0.03
+
+        return KneeTrackingAssessment(
+            averageOutward: averageOutward,
+            leftOutward: leftOutward,
+            rightOutward: rightOutward,
+            asymmetry: asymmetry,
+            inwardCollapseDetected: inwardCollapseDetected
+        )
+    }
+
+    private func maybeSpeakCorrectiveCue(_ text: String) {
+        guard voiceCoachingEnabled else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastCorrectiveVoiceCueAt) >= 4.5 else { return }
+        lastCorrectiveVoiceCueAt = now
+        voiceCoach.speak(text)
+    }
+
+    private func applyAutoWideAssist() {
+        hasAppliedAutoWideAssist = true
+        smallSpaceAssistEnabled = true
+        previewScale = min(previewScale, 0.95)
+        previewOffsetY = max(previewOffsetY, -42)
+        framingNudgeY = previewOffsetY - framingBaseOffsetY
+        cameraService.enableWideFieldOfView()
+        feedback = "Small-space assist enabled automatically. Wider framing active."
+        voiceCoach.speak("I widened the camera view for limited space.", force: true)
     }
 
     private func averageKneeAngle(from frame: PoseFrame) -> Double? {

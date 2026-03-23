@@ -64,6 +64,18 @@ final class TVContinuityCameraService: NSObject {
         }
     }
 
+    func enableWideFieldOfView() {
+        sessionQueue.async { [weak self] in
+            guard
+                let self,
+                let camera = self.currentPreferredCamera(preferredCameraID: nil)
+            else {
+                return
+            }
+            self.applyWideFieldOfViewIfSupported(camera)
+        }
+    }
+
     private func continuityCameras() -> [AVCaptureDevice] {
         AVCaptureDevice.DiscoverySession(
             deviceTypes: [.continuityCamera],
@@ -173,8 +185,33 @@ final class TVContinuityCameraService: NSObject {
             if camera.isExposureModeSupported(.continuousAutoExposure) {
                 camera.exposureMode = .continuousAutoExposure
             }
+
+            let minimumZoom = max(1.0, camera.minAvailableVideoZoomFactor)
+            let clampedMinimumZoom = min(minimumZoom, camera.maxAvailableVideoZoomFactor)
+            if abs(camera.videoZoomFactor - clampedMinimumZoom) > 0.001 {
+                camera.videoZoomFactor = clampedMinimumZoom
+            }
+            camera.isSubjectAreaChangeMonitoringEnabled = false
         } catch {
             // Continue with default continuity framing if configuration is restricted.
+        }
+    }
+
+    private func applyWideFieldOfViewIfSupported(_ camera: AVCaptureDevice) {
+        guard camera.isConnected else { return }
+
+        do {
+            try camera.lockForConfiguration()
+            defer { camera.unlockForConfiguration() }
+
+            let minimumZoom = max(1.0, camera.minAvailableVideoZoomFactor)
+            let clampedMinimumZoom = min(minimumZoom, camera.maxAvailableVideoZoomFactor)
+            if abs(camera.videoZoomFactor - clampedMinimumZoom) > 0.001 {
+                camera.videoZoomFactor = clampedMinimumZoom
+            }
+            camera.isSubjectAreaChangeMonitoringEnabled = false
+        } catch {
+            // Keep default continuity camera behavior when zoom configuration is locked.
         }
     }
 

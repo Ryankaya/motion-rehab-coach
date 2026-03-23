@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -64,7 +64,7 @@
 		1BC53F0044B13CB8225F98B8 /* TVContinuityDevicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVContinuityDevicePickerView.swift; sourceTree = "<group>"; };
 		22FAFD95F44E9619AC36B7CB /* TVAppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVAppContainer.swift; sourceTree = "<group>"; };
 		2EAE8946342EA79BC02ADE60 /* TVContinuityCameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVContinuityCameraService.swift; sourceTree = "<group>"; };
-		34CBDE888F304B2BFDC5EE7C /* motion-rehab-coach-tv.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "motion-rehab-coach-tv.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		34CBDE888F304B2BFDC5EE7C /* motion-rehab-coach-tv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "motion-rehab-coach-tv.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F4648E68D886FF6A6B0A45C /* TVCoachViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVCoachViewModel.swift; sourceTree = "<group>"; };
 		472E029F738896ECEB11AE9C /* VoiceCoaching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoaching.swift; sourceTree = "<group>"; };
 		47F4A54DA3767AD086174189 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
@@ -81,7 +81,7 @@
 		907DA0BD36701ABB5B1D75EB /* MotionRehabCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRehabCoachApp.swift; sourceTree = "<group>"; };
 		95AB460E6B3C1C6B6BC24F6A /* motion-rehab-coachTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "motion-rehab-coachTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		963475884503E04D09DC61FD /* FileSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSessionStore.swift; sourceTree = "<group>"; };
-		9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "motion-rehab-coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9902DEB500F3BC280E6E9E4D /* motion-rehab-coach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "motion-rehab-coach.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9EDB309FE7765B4129A44790 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		A09792262A1B6BCFAC52886E /* LiveSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionView.swift; sourceTree = "<group>"; };
 		A2072F4E184764F8547C20A2 /* TVFramingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVFramingMode.swift; sourceTree = "<group>"; };
@@ -426,7 +426,6 @@
 			);
 			mainGroup = 53ADE79A74EA376CE6AAF027;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -514,6 +513,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoachTV;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach TV uses Continuity Camera to display posture coaching on Apple TV.";
@@ -536,6 +536,7 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoachTV;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach TV uses Continuity Camera to display posture coaching on Apple TV.";
@@ -631,6 +632,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoach;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach uses the camera to analyze body pose for exercise feedback.";
@@ -737,6 +739,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N3X2H33TR7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MotionRehabCoach;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Motion Rehab Coach uses the camera to analyze body pose for exercise feedback.";
